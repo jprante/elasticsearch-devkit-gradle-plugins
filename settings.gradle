@@ -1,0 +1,4 @@
+include 'gradle-plugin-randomizedtesting-junit4'
+include 'gradle-plugin-monkeypatch'
+include 'gradle-plugin-elasticsearch-build'
+include 'gradle-plugin-elasticsearch-vagrant'

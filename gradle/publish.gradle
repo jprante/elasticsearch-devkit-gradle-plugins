@@ -1,0 +1,87 @@
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+configurations {
+    wagon
+}
+
+dependencies {
+    wagon "org.apache.maven.wagon:wagon-ssh:${project.property('wagon.version')}"
+}
+
+if (project.hasProperty('signing.keyId')) {
+    signing {
+        sign configurations.archives
+    }
+}
+
+task xbibUpload(type: Upload, dependsOn: build) {
+    group = 'publish'
+    configuration = configurations.archives
+    uploadDescriptor = true
+    repositories {
+        if (project.hasProperty("xbibUsername")) {
+            mavenDeployer {
+                configuration = configurations.wagon
+                repository(url: uri(project.property('xbibUrl'))) {
+                    authentication(userName: xbibUsername, privateKey: xbibPrivateKey)
+                }
+            }
+        }
+    }
+}
+
+task sonaTypeUpload(type: Upload, dependsOn: build) {
+    group = 'publish'
+    configuration = configurations.archives
+    uploadDescriptor = true
+    repositories {
+        if (project.hasProperty('ossrhUsername')) {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                repository(url: uri(ossrhReleaseUrl)) {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+                snapshotRepository(url: uri(ossrhSnapshotUrl)) {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+                pom.project {
+                    groupId project.group
+                    artifactId project.name
+                    version project.version
+                    name project.name
+                    description 'A developer kit for building and testing Elasticsearch and Elasticsearch plugins'
+                    packaging 'jar'
+                    inceptionYear '2018'
+                    url 'https://github.com/jprante/elasticsearch-xbib-devkit'
+                    organization {
+                        name 'xbib'
+                        url 'http://xbib.org'
+                    }
+                    developers {
+                        developer {
+                            id 'jprante'
+                            name 'Jörg Prante'
+                            email 'joergprante@gmail.com'
+                            url 'https://github.com/jprante'
+                        }
+                    }
+                    scm {
+                        url 'https://github.com/jprante/elasticsearch-xbib-devkit'
+                        connection 'scm:git:git@github.com/jprante/elasticsearch-xbib-devkit.git'
+                        developerConnection 'scm:git:git@github.com/jprante/elasticsearch-xbib-devkit.git'
+                    }
+                    licenses {
+                        license {
+                            name 'Apache License Version 2'
+                            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+nexusStaging {
+    packageGroup = "org.xbib"
+}

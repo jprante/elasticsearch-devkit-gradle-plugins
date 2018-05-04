@@ -1,0 +1,40 @@
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+plugins {
+    //id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.0"
+    id "io.codearte.nexus-staging" version "0.11.0"
+}
+
+printf "Date: %s\nHost: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
+        "Build: group: ${project.group} name: ${project.name} version: ${project.version}\n",
+        ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME),
+        InetAddress.getLocalHost(),
+        System.getProperty("os.name"),
+        System.getProperty("os.arch"),
+        System.getProperty("os.version"),
+        System.getProperty("java.version"),
+        System.getProperty("java.vm.version"),
+        System.getProperty("java.vm.vendor"),
+        System.getProperty("java.vm.name"),
+        gradle.gradleVersion, GroovySystem.getVersion(), JavaVersion.current()
+
+allprojects {
+
+    apply from: "${rootProject.projectDir}/gradle/publish.gradle"
+
+}
+
+/*
+asciidoctor {
+    attributes toc: 'left',
+            doctype: 'book',
+            icons: 'font',
+            encoding: 'utf-8',
+            sectlink: true,
+            sectanchors: true,
+            linkattrs: true,
+            imagesdir: 'img',
+            'source-highlighter': 'coderay'
+}
+*/

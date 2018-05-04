@@ -1,0 +1,3 @@
+
+This work is derived from https://github.com/uklance/gradle-java-monkey-patch by uklance
+published under the Apache Software License 2.0 (unreleased, master branch as of 12 Feb 2018)

@@ -1,0 +1,76 @@
+plugins {
+    id "com.gradle.plugin-publish" version "0.9.10"
+}
+
+apply plugin: 'groovy'
+apply plugin: "com.gradle.plugin-publish"
+
+repositories {
+    jcenter()
+    maven {
+        url "https://repo.gradle.org/gradle/libs-releases-local/"
+    }
+}
+
+dependencies {
+    compile gradleApi()
+    compile localGroovy()
+    compileOnly "org.gradle:gradle-logging:${gradle.gradleVersion}"
+}
+
+jar {
+    manifest {
+        attributes('Implementation-Version': project.version)
+    }
+}
+
+test {
+    testLogging {
+        showStandardStreams = false
+        exceptionFormat = 'full'
+    }
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier 'sources'
+    from sourceSets.main.allSource
+}
+
+groovydoc {
+    docTitle = description
+    groovyClasspath = tasks.jar.outputs.files
+    groovyClasspath += configurations.compile
+    groovyClasspath += configurations.runtime
+}
+
+task groovydocJar(type: Jar, dependsOn: 'groovydoc') {
+    from groovydoc.destinationDir
+    classifier = 'javadoc'
+}
+
+artifacts {
+    archives sourcesJar, groovydocJar
+}
+
+if (project.hasProperty('gradle.publish.key')) {
+    pluginBundle {
+        website = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        plugins {
+            esVagrantPlugin {
+                id = 'org.xbib.gradle.plugin.elasticsearch.vagrant'
+                description = 'Gradle plugin for vagranting Elasticsearch'
+                displayName = 'Gradle plugin for vagranting Elasticsearch'
+                tags = ['xbib', 'elasticsearch', 'vagrant']
+                version = project.version
+            }
+            esVagrantSupportPlugin {
+                id = 'org.xbib.gradle.plugin.elasticsearch.vagrantsupport'
+                description = 'Gradle plugin for supporting vagranting Elasticsearch'
+                displayName = 'Gradle plugin for supporting vagranting Elasticsearch'
+                tags = ['xbib', 'elasticsearch', 'vagrant', 'support']
+                version = project.version
+            }
+        }
+    }
+}

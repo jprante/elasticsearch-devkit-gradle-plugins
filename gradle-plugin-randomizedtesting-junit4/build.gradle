@@ -1,0 +1,69 @@
+plugins {
+    id "com.gradle.plugin-publish" version "0.9.10"
+}
+
+apply plugin: 'groovy'
+apply plugin: "com.gradle.plugin-publish"
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile gradleApi()
+    compile localGroovy()
+    compile "com.carrotsearch.randomizedtesting:junit4-ant:${project.property('randomizedtesting.version')}"
+    compile("junit:junit:${project.property('junit.version')}") {
+        transitive = false
+    }
+}
+
+jar {
+    manifest {
+        attributes('Implementation-Version': project.version)
+    }
+}
+
+test {
+    testLogging {
+        showStandardStreams = false
+        exceptionFormat = 'full'
+    }
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier 'sources'
+    from sourceSets.main.allSource
+}
+
+groovydoc {
+    docTitle = description
+    groovyClasspath = tasks.jar.outputs.files
+    groovyClasspath += configurations.compile
+    groovyClasspath += configurations.runtime
+}
+
+task groovydocJar(type: Jar, dependsOn: 'groovydoc') {
+    from groovydoc.destinationDir
+    classifier = 'javadoc'
+}
+
+artifacts {
+    archives sourcesJar, groovydocJar
+}
+
+if (project.hasProperty('gradle.publish.key')) {
+    pluginBundle {
+        website = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        plugins {
+            randomizedTestingPlugin {
+                id = 'org.xbib.gradle.plugin.randomizedtesting'
+                description = 'Gradle plugin for randomized testing'
+                displayName = 'Gradle plugin for randomized testing'
+                tags = ['xbib', 'test', 'randomized']
+                version = project.version
+            }
+        }
+    }
+}
