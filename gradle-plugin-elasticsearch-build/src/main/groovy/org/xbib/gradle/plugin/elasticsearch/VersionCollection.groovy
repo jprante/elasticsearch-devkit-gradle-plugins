@@ -12,6 +12,16 @@ class VersionCollection {
 
     private final List<Version> versions = []
 
+    Version nextMinorSnapshot
+
+    Version stagedMinorSnapshot
+
+    Version nextBugfixSnapshot
+
+    Version maintenanceBugfixSnapshot
+
+    Version currentVersion
+
     private final boolean buildSnapshot = System.getProperty("build.snapshot", "true") == "true"
 
     VersionCollection(Project project) {
@@ -24,15 +34,16 @@ class VersionCollection {
      */
     VersionCollection(List<String> versionLines) {
         for (final String line : versionLines) {
-            final Matcher match = line =~ /\W+public static final Version V_(\d+)_(\d+)_(\d+)(_alpha\d+|_beta\d+|_rc\d+)? .*/
+            final Matcher match = line =~ /.*Version V_(\d+)_(\d+)_(\d+)(_alpha\d+|_beta\d+|_rc\d+)?(_snapshot)? =.*/
             if (match.matches()) {
                 Integer major = Integer.parseInt(match.group(1))
                 Integer minor = Integer.parseInt(match.group(2))
                 Integer revision = Integer.parseInt(match.group(3))
                 String suffix = (match.group(4) ?: '').replace('_', '-')
-                Boolean snapshot = false //suffix.endsWith('-SNAPSHOT')
+                String snapshot = (match.group(5) ?: '').replace('_', '-')
+                Boolean isSnapshot = !snapshot.isEmpty()
                 String branch = null
-                final Version foundVersion = new Version(major, minor, revision, suffix, snapshot, branch)
+                final Version foundVersion = new Version(major, minor, revision, suffix, isSnapshot, branch)
                 if (versions.size() > 0 && foundVersion.onOrBeforeIncludingSuffix(versions[-1])) {
                     throw new GradleException("Versions.java contains out of order version constants:" +
                             " ${foundVersion} should come before ${versions[-1]}")
@@ -48,36 +59,48 @@ class VersionCollection {
         if (versions.isEmpty()) {
             throw new GradleException("Unexpectedly found no version constants in Versions.java");
         }
+        versions.removeAll { !it.suffix.isEmpty() && isMajorReleased(it, versions) }
+        Version lastVersion = versions.last()
+        currentVersion = new Version(lastVersion.major, lastVersion.minor, lastVersion.revision, lastVersion.suffix,
+                buildSnapshot, lastVersion.branch)
 
-        /*
-         * The tip of each minor series (>= 5.6) is unreleased, so they must be built from source (we set branch to non-null), and we set
-         * the snapshot flag if and only if build.snapshot is true.
-         */
-        Version prevConsideredVersion = null
-        boolean found6xSnapshot = false
-        for (final int versionIndex = versions.size() - 1; versionIndex >= 0; versionIndex--) {
-            final Version currConsideredVersion = versions[versionIndex]
-
-            if (prevConsideredVersion == null
-                    || currConsideredVersion.major != prevConsideredVersion.major
-                    || currConsideredVersion.minor != prevConsideredVersion.minor) {
-
-                // This is a snapshot version. Work out its branch. NB this doesn't name the current branch correctly, but this doesn't
-                // matter as we don't BWC test against it.
-                String branch = "${currConsideredVersion.major}.${currConsideredVersion.minor}"
-
-                if (!found6xSnapshot && currConsideredVersion.major == 6) {
-                    // TODO needs generalising to deal with when 7.x is cut, and when 6.x is deleted, and so on...
-                    branch = "6.x"
-                    found6xSnapshot = true
+        if (isReleased(currentVersion)) {
+            Version highestMinor = getHighestPreviousMinor(currentVersion.major)
+            maintenanceBugfixSnapshot = replaceAsSnapshot(highestMinor)
+        } else {
+            if (currentVersion.minor == 0) {
+                for (Version version : getMinorTips(currentVersion.major - 1)) {
+                    if (!isReleased(version)) {
+                        if (nextMinorSnapshot == null) {
+                            nextMinorSnapshot = replaceAsSnapshot(version)
+                        } else if (stagedMinorSnapshot == null) {
+                            stagedMinorSnapshot = replaceAsSnapshot(version)
+                        } else {
+                            throw new GradleException("More than 2 snapshot version existed for the next minor and staged (frozen) minors.")
+                        }
+                    } else {
+                        nextBugfixSnapshot = replaceAsSnapshot(version)
+                        break
+                    }
                 }
-                versions[versionIndex] = new Version(currConsideredVersion.major, currConsideredVersion.minor,
-                        currConsideredVersion.revision, currConsideredVersion.suffix, buildSnapshot, branch)
+                Version highestMinor = getHighestPreviousMinor(currentVersion.major - 1)
+                maintenanceBugfixSnapshot = replaceAsSnapshot(highestMinor)
+            } else {
+                for (Version version : getMinorTips(currentVersion.major)) {
+                    if (!isReleased(version)) {
+                        if (stagedMinorSnapshot == null) {
+                            stagedMinorSnapshot = replaceAsSnapshot(version)
+                        } else {
+                            throw new GradleException("More than 1 snapshot version existed for the staged (frozen) minors.")
+                        }
+                    } else {
+                        nextBugfixSnapshot = replaceAsSnapshot(version)
+                        break
+                    }
+                }
+                Version highestMinor = getHighestPreviousMinor(currentVersion.major)
+                maintenanceBugfixSnapshot = replaceAsSnapshot(highestMinor)
             }
-            if (currConsideredVersion.onOrBefore("5.6.0")) {
-                break
-            }
-            prevConsideredVersion = currConsideredVersion
         }
     }
 
@@ -90,38 +113,21 @@ class VersionCollection {
         url.readLines()
     }
 
-    /**
-     * @return The list of versions read from the Version.java file
-     */
     List<Version> getVersions() {
-        Collections.unmodifiableList(versions)
+        versions
     }
 
-    /**
-     * @return The latest version in the Version.java file, which must be the current version of the system.
-     */
-    Version getCurrentVersion() {
-        versions[-1]
-    }
-
-    /**
-     * @return The snapshot at the end of the previous minor series in the current major series, or null if this is the first minor series.
-     */
     Version getBWCSnapshotForCurrentMajor() {
         getLastSnapshotWithMajor(currentVersion.major)
     }
 
-    /**
-     * @return The snapshot at the end of the previous major series, which must not be null.
-     */
     Version getBWCSnapshotForPreviousMajor() {
-        Version version = getLastSnapshotWithMajor(currentVersion.major - 1)
-        return version
+        getLastSnapshotWithMajor(currentVersion.major - 1)
     }
 
     private Version getLastSnapshotWithMajor(int targetMajor) {
-        final String currentVersion = currentVersion.toString()
-        final int snapshotIndex = versions.findLastIndexOf {
+        String currentVersion = currentVersion.toString()
+        int snapshotIndex = versions.findLastIndexOf {
             it.major == targetMajor && it.before(currentVersion) && it.snapshot == buildSnapshot
         }
         return snapshotIndex == -1 ? null : versions[snapshotIndex]
@@ -129,41 +135,82 @@ class VersionCollection {
 
     private List<Version> versionsOnOrAfterExceptCurrent(Version minVersion) {
         final String minVersionString = minVersion.toString()
-        return Collections.unmodifiableList(versions.findAll {
-            it.onOrAfter(minVersionString) && it != currentVersion
-        })
+        return versions.findAll { it.onOrAfter(minVersionString) && it != currentVersion }
     }
 
-    /**
-     * @return All earlier versions that should be tested for index BWC with the current version.
-     */
     List<Version> getVersionsIndexCompatibleWithCurrent() {
-        final Version firstVersionOfCurrentMajor = versions.find { it.major >= currentVersion.major - 1 }
-        return versionsOnOrAfterExceptCurrent(firstVersionOfCurrentMajor)
+        Version version = versions.find { it.major >= currentVersion.major - 1 }
+        versionsOnOrAfterExceptCurrent(version)
+    }
+
+    List<Version> getVersionsWireCompatibleWithCurrent() {
+        versionsOnOrAfterExceptCurrent(getMinimumWireCompatibilityVersion())
+    }
+
+    List<Version> getIndexCompatible() {
+        int actualMajor = (currentVersion.major == 5 ? 2 : currentVersion.major - 1)
+        Version version = Version.fromString("${actualMajor}.0.0")
+        versions.findAll { it.onOrAfter(version.toString()) }.findAll { it.before(currentVersion.toString()) }
+    }
+
+    List<Version> getWireCompatible() {
+        Version lowerBound = getHighestPreviousMinor(currentVersion.major)
+        Version version = Version.fromString("${lowerBound.major}.${lowerBound.minor}.0")
+        versions.findAll { it.onOrAfter(version.toString()) }.findAll { it.before(currentVersion.toString()) }
     }
 
     private Version getMinimumWireCompatibilityVersion() {
-        final int firstIndexOfThisMajor = versions.findIndexOf { it.major == currentVersion.major }
+        int firstIndexOfThisMajor = versions.findIndexOf { it.major == currentVersion.major }
         if (firstIndexOfThisMajor == 0) {
             return versions[0]
         }
-        final Version lastVersionOfEarlierMajor = versions[firstIndexOfThisMajor - 1]
-        return versions.find { it.major == lastVersionOfEarlierMajor.major && it.minor == lastVersionOfEarlierMajor.minor }
+        Version lastVersionOfEarlierMajor = versions[firstIndexOfThisMajor - 1]
+        versions.find { it.major == lastVersionOfEarlierMajor.major && it.minor == lastVersionOfEarlierMajor.minor }
     }
 
-    /**
-     * @return All earlier versions that should be tested for wire BWC with the current version.
-     */
-    List<Version> getVersionsWireCompatibleWithCurrent() {
-        return versionsOnOrAfterExceptCurrent(minimumWireCompatibilityVersion)
+    private boolean isMajorReleased(Version version, List<Version> list) {
+        Version v1 = Version.fromString("${version.major}.0.0")
+        Version v2 = Version.fromString("${version.major + 1}.0.0")
+        return list.findAll { it.onOrAfter(v1.toString()) }.findAll { it.before(v2.toString()) }
+                .count { it.suffix.isEmpty() }
+                .intValue() > 1
     }
 
-    /**
-     * `gradle check` does not run all BWC tests. This defines which tests it does run.
-     * @return Versions to test for BWC during gradle check.
-     */
-    List<Version> getBasicIntegrationTestVersions() {
-        List<Version> result = [BWCSnapshotForPreviousMajor, BWCSnapshotForCurrentMajor]
-        return Collections.unmodifiableList(result.findAll { it != null })
+    private Version getHighestPreviousMinor(Integer nextMajorVersion) {
+        Version version = Version.fromString("${nextMajorVersion}.0.0")
+        versions.findAll { it.before(version.toString()) }.last()
     }
+
+    private Version replaceAsSnapshot(Version version) {
+        versions.remove(version)
+        Version snapshotVersion = new Version(version.major, version.minor, version.revision, version.suffix, true, null)
+        versions.add(snapshotVersion)
+        snapshotVersion
+    }
+
+    private List<Version> getMinorTips(Integer major) {
+        List<Version> majorSet = getMajorSet(major)
+        List<Version> minorList = new ArrayList<>()
+        for (int minor = majorSet.last().minor; minor >= 0; minor--) {
+            List<Version> minorSetInMajor = getMinorSetForMajor(major, minor)
+            minorList.add(minorSetInMajor.last())
+        }
+        minorList
+    }
+
+    private List<Version> getMajorSet(Integer major) {
+        Version version = Version.fromString("${major}.0.0")
+        versions.findAll { it.onOrAfter(version.toString()) }.findAll { it.before(currentVersion.toString()) }
+    }
+
+    private List<Version> getMinorSetForMajor(Integer major, Integer minor) {
+        Version v1 = Version.fromString("${major}.${minor}.0")
+        Version v2 = Version.fromString("${major}.${minor + 1}.0")
+        versions.findAll { it.onOrAfter(v1.toString()) }.findAll { it.before(v2.toString()) }
+    }
+
+    private static boolean isReleased(Version version) {
+        version.revision > 0
+    }
+
 }

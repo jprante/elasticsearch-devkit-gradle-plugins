@@ -50,7 +50,7 @@ class NamingConventionsTask extends LoggedResultJavaExec {
         if (!project.configurations.names.contains('namingConventions')) {
             project.configurations.create('namingConventions')
             Dependency buildToolsDep = project.dependencies.add('namingConventions',
-                    "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:${project.version}")
+                    "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:${project.property('xbib-elasticsearch-test.version')}")
             buildToolsDep.transitive = false // We don't need gradle in the classpath. It conflicts.
         }
         FileCollection extraClasspath = project.configurations.namingConventions
