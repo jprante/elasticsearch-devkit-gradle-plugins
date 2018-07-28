@@ -2,8 +2,8 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 plugins {
-    //id "org.xbib.gradle.plugin.asciidoctor" version "1.6.0.0"
     id "io.codearte.nexus-staging" version "0.11.0"
+    id "org.xbib.gradle.plugin.asciidoctor" version "1.5.6.0.1"
 }
 
 printf "Date: %s\nHost: %s\nOS: %s %s %s\nJVM: %s %s %s %s\nGradle: %s Groovy: %s Java: %s\n" +
@@ -25,7 +25,7 @@ allprojects {
 
 }
 
-/*
+
 asciidoctor {
     attributes toc: 'left',
             doctype: 'book',
@@ -37,4 +37,3 @@ asciidoctor {
             imagesdir: 'img',
             'source-highlighter': 'coderay'
 }
-*/
