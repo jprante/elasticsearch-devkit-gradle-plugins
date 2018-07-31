@@ -69,7 +69,7 @@ class PluginBuildPlugin extends BuildPlugin {
         project.dependencies {
             provided "org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}"
             provided "org.locationtech.spatial4j:spatial4j:${project.property('spatial4j.version')}"
-            provided "com.vividsolutions:jts:${project.property('jts.version')}"
+            provided "org.locationtech.jts:jts-core:${project.property('jts.version')}"
             provided "org.apache.logging.log4j:log4j-api:${project.property('log4j.version')}"
             provided "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
             provided "org.elasticsearch:jna:${project.property('jna.version')}"
