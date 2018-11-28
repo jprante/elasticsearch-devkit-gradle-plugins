@@ -14,7 +14,7 @@ class UpdateShasTask extends DefaultTask {
     /** The parent dependency licenses task to use configuration from */
     public DependencyLicensesTask parentTask
 
-    public UpdateShasTask() {
+    UpdateShasTask() {
         description = 'Updates the SHA files for the dependencyLicenses check'
         onlyIf { parentTask.licensesDir.exists() }
     }

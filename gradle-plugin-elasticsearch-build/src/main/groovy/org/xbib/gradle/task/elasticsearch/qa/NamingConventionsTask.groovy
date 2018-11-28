@@ -30,13 +30,13 @@ class NamingConventionsTask extends LoggedResultJavaExec {
      * Superclass for all tests.
      */
     @Input
-    String testClass = 'org.apache.lucene.util.LuceneTestCase'
+    String testClass = 'org.apache.lucene.testframework.util.LuceneTestCase'
 
     /**
      * Superclass for all integration tests.
      */
     @Input
-    String integTestClass = 'org.elasticsearch.test.ESIntegTestCase'
+    String integTestClass = 'org.elasticsearch.testframework.ESIntegTestCase'
 
     /**
      * Should the test also check the main classpath for test classes instead of
@@ -50,7 +50,7 @@ class NamingConventionsTask extends LoggedResultJavaExec {
         if (!project.configurations.names.contains('namingConventions')) {
             project.configurations.create('namingConventions')
             Dependency buildToolsDep = project.dependencies.add('namingConventions',
-                    "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:${project.property('xbib-elasticsearch-test.version')}")
+                    "org.xbib.elasticsearch:gradle-plugin-elasticsearch-build:${project.property('elasticsearch-devkit.version')}")
             buildToolsDep.transitive = false // We don't need gradle in the classpath. It conflicts.
         }
         FileCollection extraClasspath = project.configurations.namingConventions
@@ -59,7 +59,6 @@ class NamingConventionsTask extends LoggedResultJavaExec {
         FileCollection runtimeClasspath = project.sourceSets.test.runtimeClasspath
         inputs.files(runtimeClasspath)
         description = "Tests that test classes aren't misnamed or misplaced"
-        //executable = new File(project.runtimeJavaHome, 'bin/java')
         if (!checkForTestsInMain) {
             /* This task is created by default for all subprojects with this
              * setting and there is no point in running it if the files don't
@@ -76,9 +75,8 @@ class NamingConventionsTask extends LoggedResultJavaExec {
         project.afterEvaluate {
             doFirst {
                 classpath runtimeClasspath + extraClasspath
-                main = 'org.xbib.elasticsearch.test.NamingConventionsCheck'
+                main = 'org.xbib.elasticsearch.test.namingconvention.NamingConventionsCheck'
                 jvmArgs('-Djna.nosys=true')
-                //args('-cp', (classpath + extraClasspath).asPath, 'org.xbib.elasticsearch.test.NamingConventionsCheck')
                 args('--test-class', testClass)
                 if (skipIntegTestInDisguise) {
                     args('--skip-integ-tests-in-disguise')

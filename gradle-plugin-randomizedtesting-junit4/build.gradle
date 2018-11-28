@@ -10,24 +10,16 @@ repositories {
 }
 
 dependencies {
-    compile gradleApi()
-    compile localGroovy()
-    compile "com.carrotsearch.randomizedtesting:junit4-ant:${project.property('randomizedtesting.version')}"
-    compile("junit:junit:${project.property('junit.version')}") {
-        transitive = false
-    }
+    compileOnly gradleApi()
+    compile "org.xbib.elasticsearch:randomizedtesting-junit4-ant:${project.property('elasticsearch-libs.version')}"
+    testCompile gradleTestKit()
+    testCompile "org.spockframework:spock-core:${project.property('spock.version')}"
+
 }
 
 jar {
     manifest {
         attributes('Implementation-Version': project.version)
-    }
-}
-
-test {
-    testLogging {
-        showStandardStreams = false
-        exceptionFormat = 'full'
     }
 }
 
@@ -54,8 +46,8 @@ artifacts {
 
 if (project.hasProperty('gradle.publish.key')) {
     pluginBundle {
-        website = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
-        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        website = 'https://github.com/jprante/elasticsearch-xbib-devkit-gradle-plugins/'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit-gradle-plugins/'
         plugins {
             randomizedTestingPlugin {
                 id = 'org.xbib.gradle.plugin.randomizedtesting'
@@ -67,3 +59,5 @@ if (project.hasProperty('gradle.publish.key')) {
         }
     }
 }
+
+apply from: "${rootProject.projectDir}/gradle/publish.gradle"

@@ -31,15 +31,10 @@ class StandaloneRestTestPlugin implements Plugin<Project> {
         // only setup tests to build
         project.sourceSets.create('test')
         project.dependencies.add('testCompile',
-                "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('xbib-elasticsearch-test.version')}")
+                "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}")
 
-
-        project.eclipse.classpath.sourceSets = [project.sourceSets.test]
-        project.eclipse.classpath.plusConfigurations = [project.configurations.testRuntime]
-        project.idea.module.testSourceDirs += project.sourceSets.test.java.srcDirs
-        project.idea.module.scopes['TEST'] = [plus: [project.configurations.testRuntime]]
-
-        QualityAssuranceTasks.create(project, false)
+        QualityAssuranceTasks tasks = new QualityAssuranceTasks()
+        tasks.create(project, false)
         project.check.dependsOn(project.precommit)
     }
 }

@@ -10,7 +10,7 @@ class ClusterConfiguration {
     private final Project project
 
     @Input
-    String distribution = 'integ-test-zip'
+    String distribution = 'integ-test-tar'
 
     @Input
     int numNodes = 1
@@ -119,6 +119,8 @@ class ClusterConfiguration {
 
     Map<String, String> systemProperties = new HashMap<>()
 
+    Map<String, Object> environmentVariables = new HashMap<>()
+
     Map<String, Object> settings = new HashMap<>()
 
     Map<String, String> keystoreSettings = new HashMap<>()
@@ -137,6 +139,11 @@ class ClusterConfiguration {
     @Input
     void systemProperty(String property, String value) {
         systemProperties.put(property, value)
+    }
+
+    @Input
+    void environment(String variable, Object value) {
+        environmentVariables.put(variable, value)
     }
 
     @Input

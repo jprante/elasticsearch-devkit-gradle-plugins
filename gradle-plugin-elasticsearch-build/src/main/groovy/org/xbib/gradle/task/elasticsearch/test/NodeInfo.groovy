@@ -141,8 +141,9 @@ class NodeInfo {
             args.add("${esScript}")
         }
 
-        //env = ['JAVA_HOME': project.runtimeJavaHome]
+        // the original Elasticsearch start script requires JAVA_HOME or it will fall back to the default java.
         env = [:]
+        env.putAll(config.environmentVariables)
         args.addAll("-E", "node.portsfile=true")
         String collectedSystemProperties = config.systemProperties.collect { key, value -> "-D${key}=${value}" }.join(" ")
         String esJavaOpts = config.jvmArgs.isEmpty() ? collectedSystemProperties : collectedSystemProperties + " " + config.jvmArgs

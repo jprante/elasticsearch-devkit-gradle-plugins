@@ -26,7 +26,7 @@ class RestTestPlugin implements Plugin<Project> {
                 + 'org.xbib.gradle.plugin.elasticsearch.standalone-rest-test')
         }
 
-        RestIntegTestTask integTest = project.tasks.create('integTest', RestIntegTestTask.class)
+        RestIntegTestTask integTest = project.tasks.create('integTest', RestIntegTestTask)
         integTest.description = 'Runs rest tests against an Elasticsearch cluster'
         integTest.group = JavaBasePlugin.VERIFICATION_GROUP
         integTest.clusterConfig.distribution = 'zip' // rest tests should run with the real zip

@@ -6,6 +6,7 @@ import groovy.xml.NamespaceBuilder
 import groovy.xml.NamespaceBuilderSupport
 import org.apache.tools.ant.BuildException
 import org.apache.tools.ant.DefaultLogger
+import org.apache.tools.ant.Project
 import org.apache.tools.ant.RuntimeConfigurable
 import org.apache.tools.ant.UnknownElement
 import org.gradle.api.DefaultTask
@@ -13,12 +14,12 @@ import org.gradle.api.GradleException
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileTreeElement
-import org.gradle.api.internal.tasks.options.Option
 import org.gradle.api.specs.Spec
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.util.PatternFilterable
 import org.gradle.api.tasks.util.PatternSet
 import org.gradle.internal.logging.progress.ProgressLoggerFactory
@@ -28,9 +29,29 @@ import javax.inject.Inject
 
 class RandomizedTestingTask extends DefaultTask {
 
+    TestLoggingConfiguration testLoggingConfig
+
+    BalancersConfiguration balancersConfig
+
+    ListenersConfiguration listenersConfig
+
+    List<String> jvmArgs
+
+    Map<String, Object> systemProperties
+
+    Map<String, Object> environmentVariables
+
+    PatternFilterable patternSet
+
+    /**
+     * We can not use sun.java.command because we are running under Gradle, for example:
+     * sun.java.command=worker.org.gradle.process.internal.worker.GradleWorkerMain 'Gradle Test Executor 2'
+     * sun.java.command=org.gradle.launcher.daemon.bootstrap.GradleDaemon 5.1-20181024000040+0000"
+     *
+     */
     @Optional
     @Input
-    String jvm = 'java'
+    String jvm = System.getProperty('java.home') + '/bin/java'
 
     @Optional
     @Input
@@ -38,7 +59,23 @@ class RandomizedTestingTask extends DefaultTask {
 
     @Optional
     @Input
-    FileCollection classpath
+    FileCollection modulepath
+
+    @Optional
+    @Input
+    String modules
+
+    @Optional
+    @Input
+    String exports
+
+    @Optional
+    @Input
+    String opens
+
+    @Optional
+    @Input
+    String reads
 
     @Input
     String parallelism = '1'
@@ -74,30 +111,43 @@ class RandomizedTestingTask extends DefaultTask {
     @Input
     String onNonEmptyWorkDirectory = 'fail'
 
-    TestLoggingConfiguration testLoggingConfig = new TestLoggingConfiguration()
-
-    BalancersConfiguration balancersConfig = new BalancersConfiguration(task: this)
-    ListenersConfiguration listenersConfig = new ListenersConfiguration(task: this)
-
-    List<String> jvmArgs = new ArrayList<>()
-
     @Optional
     @Input
     String argLine = null
 
-    Map<String, Object> systemProperties = new HashMap<>()
-    Map<String, Object> environmentVariables = new HashMap<>()
-    PatternFilterable patternSet = new PatternSet()
-
     RandomizedTestingTask() {
         outputs.upToDateWhen {false} // randomized tests are never up to date
-        listenersConfig.listeners.add(new TestProgressLogger(factory: getProgressLoggerFactory()))
-        listenersConfig.listeners.add(new TestReportLogger(logger: logger, config: testLoggingConfig))
+        jvmArgs = []
+        systemProperties = new HashMap<>()
+        environmentVariables = new HashMap<>()
+        patternSet = new PatternSet()
+        testLoggingConfig = new TestLoggingConfiguration()
+        balancersConfig = new BalancersConfiguration(this)
+        listenersConfig = new ListenersConfiguration(this)
+        TestProgressLogger progressLogger = new TestProgressLogger(getProgressLoggerFactory())
+        TestReportLogger reportLogger = new TestReportLogger(logger, testLoggingConfig)
+        listenersConfig.listeners.add(progressLogger)
+        listenersConfig.listeners.add(reportLogger)
     }
 
     @Inject
     ProgressLoggerFactory getProgressLoggerFactory() {
         throw new UnsupportedOperationException()
+    }
+
+    @Input
+    void testLogging(Closure closure) {
+        ConfigureUtil.configure(closure, testLoggingConfig)
+    }
+
+    @Input
+    void balancers(Closure closure) {
+        ConfigureUtil.configure(closure, balancersConfig)
+    }
+
+    @Input
+    void listeners(Closure closure) {
+        ConfigureUtil.configure(closure, listenersConfig)
     }
 
     void jvmArgs(Iterable<String> arguments) {
@@ -117,50 +167,35 @@ class RandomizedTestingTask extends DefaultTask {
     }
 
     void include(String... includes) {
-        this.patternSet.include(includes)
+        patternSet.include(includes)
     }
 
     void include(Iterable<String> includes) {
-        this.patternSet.include(includes)
+        patternSet.include(includes)
     }
 
     void include(Spec<FileTreeElement> includeSpec) {
-        this.patternSet.include(includeSpec)
+        patternSet.include(includeSpec)
     }
 
     void include(Closure includeSpec) {
-        this.patternSet.include(includeSpec)
+        patternSet.include(includeSpec)
     }
 
     void exclude(String... excludes) {
-        this.patternSet.exclude(excludes)
+        patternSet.exclude(excludes)
     }
 
     void exclude(Iterable<String> excludes) {
-        this.patternSet.exclude(excludes)
+        patternSet.exclude(excludes)
     }
 
     void exclude(Spec<FileTreeElement> excludeSpec) {
-        this.patternSet.exclude(excludeSpec)
+        patternSet.exclude(excludeSpec)
     }
 
     void exclude(Closure excludeSpec) {
-        this.patternSet.exclude(excludeSpec)
-    }
-
-    @Input
-    void testLogging(Closure closure) {
-        ConfigureUtil.configure(closure, testLoggingConfig)
-    }
-
-    @Input
-    void balancers(Closure closure) {
-        ConfigureUtil.configure(closure, balancersConfig)
-    }
-
-    @Input
-    void listeners(Closure closure) {
-        ConfigureUtil.configure(closure, listenersConfig)
+        patternSet.exclude(excludeSpec)
     }
 
     @Option(option = "tests",
@@ -193,6 +228,7 @@ class RandomizedTestingTask extends DefaultTask {
 
     @TaskAction
     void executeTests() {
+        logger.info('Randomized testing java executable: ' + jvm)
         Map attributes = [
             jvm: jvm,
             parallelism: parallelism,
@@ -206,7 +242,6 @@ class RandomizedTestingTask extends DefaultTask {
             onNonEmptyWorkDirectory: onNonEmptyWorkDirectory,
             newenvironment: true
         ]
-
         DefaultLogger listener = null
         ByteArrayOutputStream antLoggingBuffer = null
         if (!logger.isInfoEnabled()) {
@@ -218,7 +253,7 @@ class RandomizedTestingTask extends DefaultTask {
                 listener = new DefaultLogger(
                         errorPrintStream: System.err,
                         outputPrintStream: System.out,
-                        messageOutputLevel: org.apache.tools.ant.Project.MSG_INFO)
+                        messageOutputLevel: Project.MSG_INFO)
             } else {
                 // we want to buffer the info, and emit it if the test fails
                 antLoggingBuffer = new ByteArrayOutputStream()
@@ -226,19 +261,15 @@ class RandomizedTestingTask extends DefaultTask {
                 listener = new DefaultLogger(
                         errorPrintStream: stream,
                         outputPrintStream: stream,
-                        messageOutputLevel: org.apache.tools.ant.Project.MSG_INFO)
+                        messageOutputLevel: Project.MSG_INFO)
             }
             project.ant.project.addBuildListener(listener)
         }
-
         NamespaceBuilderSupport junit4 = NamespaceBuilder.newInstance(ant, 'junit4')
-        if (!classpath) {
-            throw new GradleException("no classpath set for randomizedtesting task")
-        }
         try {
             junit4.junit4(attributes) {
-                classpath {
-                    pathElement(path: classpath.asPath)
+                modulepath {
+                    pathElement(path: modulepath.asPath)
                 }
                 if (enableAssertions) {
                     jvmarg(value: '-ea')
@@ -246,18 +277,28 @@ class RandomizedTestingTask extends DefaultTask {
                 if (enableSystemAssertions) {
                     jvmarg(value: '-esa')
                 }
+                if (modules) {
+                    jvmarg(value: "--add-modules=${modules}")
+                }
+                if (exports) {
+                    jvmarg(value: "--add-exports=${exports}")
+                }
+                if (opens) {
+                    jvmarg(value: "--add-opens=${opens}")
+                }
+                if (reads) {
+                    jvmarg(value: "--add-reads=${reads}")
+                }
                 for (String arg : jvmArgs) {
                     jvmarg(value: arg)
                 }
                 if (argLine != null) {
                     jvmarg(line: argLine)
                 }
-                fileset(dir: testClassesDirs.asPath) {
-                    for (String includePattern : patternSet.getIncludes()) {
-                        include(name: includePattern)
-                    }
-                    for (String excludePattern : patternSet.getExcludes()) {
-                        exclude(name: excludePattern)
+                testClassesDirs.each { testClassDir ->
+                    fileset(dir: testClassDir) {
+                        patternSet.getIncludes().each { include(name: it) }
+                        patternSet.getExcludes().each { exclude(name: it) }
                     }
                 }
                 for (Map.Entry<String, Object> prop : systemProperties) {
@@ -265,7 +306,11 @@ class RandomizedTestingTask extends DefaultTask {
                         throw new InvalidUserDataException('Seed should be ' +
                             'set on the project instead of a system property')
                     }
-                    sysproperty key: prop.getKey(), value: prop.getValue().toString()
+                    if (prop.getValue() instanceof Closure) {
+                        sysproperty key: prop.getKey(), value: (prop.getValue() as Closure).call().toString()
+                    } else {
+                        sysproperty key: prop.getKey(), value: prop.getValue().toString()
+                    }
                 }
                 systemProperty 'tests.seed', project.testSeed
                 for (Map.Entry<String, Object> envvar : environmentVariables) {
@@ -275,16 +320,14 @@ class RandomizedTestingTask extends DefaultTask {
             }
         } catch (BuildException e) {
             if (antLoggingBuffer != null) {
-                logger.error('JUnit4 test failed, ant output was:')
-                logger.error(antLoggingBuffer.toString('UTF-8'))
+                logger.error('JUnit4 test failed, ant output was:' + antLoggingBuffer.toString('UTF-8'))
             }
             if (haltOnFailure) {
                 throw e
             }
         }
-
         if (listener != null) {
-            // remove the listener we added so other ant tasks dont have verbose logging!
+            // remove the listener we added so other ant tasks dont have verbose logging
             project.ant.project.removeBuildListener(listener)
         }
     }
@@ -299,11 +342,11 @@ class RandomizedTestingTask extends DefaultTask {
         }
 
         void handleChildren(Object realThing, RuntimeConfigurable wrapper) {
-            assert realThing instanceof ListenersList
-            ListenersList list = (ListenersList)realThing
-
-            for (AggregatedEventListener listener : listeners) {
-                list.addConfigured(listener)
+            if (realThing instanceof ListenersList) {
+                ListenersList list = (ListenersList) realThing
+                for (AggregatedEventListener listener : listeners) {
+                    list.addConfigured(listener)
+                }
             }
         }
     }

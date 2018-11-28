@@ -213,7 +213,7 @@ class DependencyLicensesTask extends DefaultTask {
         private DependencyLicensesTask parentTask
 
         @TaskAction
-        public void updateShas() {
+        void updateShas() {
             Set<File> shaFiles = new HashSet<File>()
             parentTask.licensesDir.eachFile {
                 String name = it.getName()

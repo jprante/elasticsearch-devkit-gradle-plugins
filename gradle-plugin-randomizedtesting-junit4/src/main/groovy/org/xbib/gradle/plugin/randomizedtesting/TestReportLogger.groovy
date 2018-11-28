@@ -1,10 +1,10 @@
 package org.xbib.gradle.plugin.randomizedtesting
 
+import com.carrotsearch.ant.tasks.junit4.FormattingUtils
 import com.carrotsearch.ant.tasks.junit4.JUnit4
 import com.carrotsearch.ant.tasks.junit4.Pluralize
 import com.carrotsearch.ant.tasks.junit4.TestsSummaryEventListener
-import com.carrotsearch.ant.tasks.junit4.dependencies.com.google.common.base.Strings
-import com.carrotsearch.ant.tasks.junit4.dependencies.com.google.common.eventbus.Subscribe
+import com.google.common.eventbus.Subscribe
 import com.carrotsearch.ant.tasks.junit4.events.EventType
 import com.carrotsearch.ant.tasks.junit4.events.IEvent
 import com.carrotsearch.ant.tasks.junit4.events.IStreamEvent
@@ -30,22 +30,9 @@ import org.junit.runner.Description
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import static com.carrotsearch.ant.tasks.junit4.FormattingUtils.formatDescription
-import static com.carrotsearch.ant.tasks.junit4.FormattingUtils.formatDurationInSeconds
-import static com.carrotsearch.ant.tasks.junit4.FormattingUtils.formatTime
-
 class TestReportLogger extends TestsSummaryEventListener implements AggregatedEventListener {
 
-    static final String FAILURE_MARKER = " <<< FAILURES!"
-
-    /** Status names column. */
-    static EnumMap<? extends TestStatus, String> statusNames
-    static {
-        statusNames = new EnumMap<>(TestStatus.class)
-        for (TestStatus s : TestStatus.values()) {
-            statusNames.put(s, s == TestStatus.IGNORED_ASSUMPTION ? "IGNOR/A" : s.toString())
-        }
-    }
+    EnumMap<? extends TestStatus, String> statusNames
 
     JUnit4 owner
 
@@ -62,19 +49,40 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
 
     /** Output stream that logs messages to the given logger */
     LoggingOutputStream outStream
+
     LoggingOutputStream errStream
 
     /** A list of failed tests, if to be displayed at the end. */
-    List<Description> failedTests = new ArrayList<>()
+    List<Description> failedTests
 
     /** Stack trace filters. */
-    StackTraceFilter stackFilter = new StackTraceFilter()
+    StackTraceFilter stackFilter
 
-    Map<String, Long> suiteTimes = new HashMap<>()
-    boolean slowTestsFound = false
+    Map<String, Long> suiteTimes
+
+    boolean slowTestsFound
 
     int totalSuites
-    AtomicInteger suitesCompleted = new AtomicInteger()
+
+    AtomicInteger suitesCompleted
+
+    TestReportLogger(Logger logger, TestLoggingConfiguration config) {
+        suiteTimes = new HashMap<>()
+        stackFilter = new StackTraceFilter()
+        failedTests = new ArrayList<>()
+        suitesCompleted = new AtomicInteger()
+        statusNames = new EnumMap<>(TestStatus)
+        for (TestStatus s : TestStatus.values()) {
+            this.statusNames.put(s, s == TestStatus.IGNORED_ASSUMPTION ? "IGNOR/A" : s.toString())
+        }
+        this.logger = logger
+        this.config = config
+    }
+
+    @Override
+    void setOuter(JUnit4 task) {
+        owner = task
+    }
 
     @Subscribe
     void onStart(AggregatedStartEvent e) throws IOException {
@@ -111,9 +119,9 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
     @Subscribe
     void onHeartbeat(HeartBeatEvent e) throws IOException {
         logger.warn("HEARTBEAT J" + e.getSlave().id + " PID(" + e.getSlave().getPidString() + "): " +
-                formatTime(e.getCurrentTime()) + ", stalled for " +
-                formatDurationInSeconds(e.getNoEventDuration()) + " at: " +
-                (e.getDescription() == null ? "<unknown>" : formatDescription(e.getDescription())))
+                FormattingUtils.formatTime(e.getCurrentTime()) + ", stalled for " +
+                FormattingUtils.formatDurationInSeconds(e.getNoEventDuration()) + " at: " +
+                (e.getDescription() == null ? "<unknown>" : FormattingUtils.formatDescription(e.getDescription())))
         slowTestsFound = true
     }
 
@@ -129,7 +137,7 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
             }
             b.append(':\n')
             for (Description description : sublist) {
-                b.append("  - ").append(formatDescription(description, true)).append('\n')
+                b.append("  - ").append(FormattingUtils.formatDescription(description, true)).append('\n')
             }
             logger.warn(b.toString())
         }
@@ -145,9 +153,11 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
             int numToLog = Math.min(config.slowTests.summarySize, sortedSuiteTimes.size())
             logger.log(level, 'Slow Tests Summary:')
             for (int i = 0; i < numToLog; ++i) {
-                logger.log(level, String.format(Locale.ENGLISH, '%6.2fs | %s',
-                        sortedSuiteTimes.get(i).value / 1000.0,
-                        sortedSuiteTimes.get(i).key))
+                // we use milliseonds here because of JDK 11 / Groovy problems when using static initialize on div constants
+                String key = sortedSuiteTimes.get(i).key
+                long millis = sortedSuiteTimes.get(i).value
+                String s = sprintf('%d ms | %s', millis, key)
+                logger.log(level, s)
             }
             logger.log(level, '') // extra vertical separation
         }
@@ -188,7 +198,6 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
             flushOutput()
             emitStatusLine(LogLevel.ERROR, e, e.getStatus(), e.getExecutionTime())
         }
-
         if (!e.isSuccessful()) {
             failedTests.add(e.getDescription())
         }
@@ -222,7 +231,6 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
         emitSuiteEnd(level, e, completed)
     }
 
-    /** Suite prologue. */
     void emitSuiteStart(LogLevel level, Description description) throws IOException {
         logger.log(level, 'Suite: ' + description.getDisplayName())
     }
@@ -231,15 +239,12 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
         if (config.outputMode == TestLoggingConfiguration.OutputMode.NEVER) {
             return
         }
-
-        final IdentityHashMap<TestFinishedEvent,AggregatedTestResultEvent> eventMap = new IdentityHashMap<>()
+        IdentityHashMap<TestFinishedEvent,AggregatedTestResultEvent> eventMap = new IdentityHashMap<>()
         for (Object tre : e.getTests()) {
             eventMap.put(tre.getTestFinishedEvent(), tre as AggregatedTestResultEvent)
         }
-
-        final boolean emitOutput = config.outputMode == TestLoggingConfiguration.OutputMode.ALWAYS && !isPassthrough() ||
+        boolean emitOutput = config.outputMode == TestLoggingConfiguration.OutputMode.ALWAYS && !isPassthrough() ||
                                    config.outputMode == TestLoggingConfiguration.OutputMode.ONERROR && !e.isSuccessful()
-
         for (Object obj : e.getEventStream()) {
             IEvent event = obj as IEvent
             switch (event.getType()) {
@@ -264,82 +269,68 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
                     break
             }
         }
-
         if (emitOutput) {
             flushOutput()
         }
     }
 
     void emitSuiteEnd(LogLevel level, AggregatedSuiteResultEvent e, int suitesCompleted) throws IOException {
-
-        final StringBuilder b = new StringBuilder()
-        b.append(String.format(Locale.ENGLISH, 'Completed [%d/%d]%s in %.2fs, ',
+        StringBuilder b = new StringBuilder()
+        b.append(sprintf('Completed [%d/%d]%s in %.2fs, ',
                 suitesCompleted,
                 totalSuites,
                 e.getSlave().slaves > 1 ? ' on J' + e.getSlave().id : '',
                 e.getExecutionTime() / 1000.0d))
         b.append(e.getTests().size()).append(Pluralize.pluralize(e.getTests().size(), ' test'))
-
         int failures = e.getFailureCount()
         if (failures > 0) {
             b.append(', ').append(failures).append(Pluralize.pluralize(failures, ' failure'))
         }
-
         int errors = e.getErrorCount()
         if (errors > 0) {
             b.append(', ').append(errors).append(Pluralize.pluralize(errors, ' error'))
         }
-
         int ignored = e.getIgnoredCount()
         if (ignored > 0) {
             b.append(', ').append(ignored).append(' skipped')
         }
-
         if (!e.isSuccessful()) {
             b.append(' <<< FAILURES!')
         }
-
         b.append('\n')
         logger.log(level, b.toString())
     }
 
-    /** Emit status line for an aggregated event. */
     void emitStatusLine(LogLevel level, AggregatedResultEvent result, TestStatus status, long timeMillis) throws IOException {
-        final StringBuilder line = new StringBuilder()
-        line.append(Strings.padEnd(statusNames.get(status), 8, ' ' as char))
-        line.append(formatDurationInSeconds(timeMillis))
+        StringBuilder line = new StringBuilder()
+        line.append(FormattingUtils.padEnd(statusNames.get(status), 8, ' ' as char))
+        line.append(FormattingUtils.formatDurationInSeconds(timeMillis))
         if (forkedJvmCount > 1) {
-            line.append(String.format(Locale.ROOT, jvmIdFormat, result.getSlave().id))
+            line.append(sprintf(jvmIdFormat, result.getSlave().id))
         }
         line.append(' | ')
 
-        line.append(formatDescription(result.getDescription()))
+        line.append(FormattingUtils.formatDescription(result.getDescription()))
         if (!result.isSuccessful()) {
-            line.append(FAILURE_MARKER)
+            line.append(' <<< FAILURES!')
         }
         logger.log(level, line.toString())
-
         PrintWriter writer = new PrintWriter(new LoggingOutputStream(logger: logger, level: level, prefix: '   > '))
-
         if (status == TestStatus.IGNORED && result instanceof AggregatedTestResultEvent) {
             writer.write('Cause: ')
             writer.write(((AggregatedTestResultEvent) result).getCauseForIgnored())
             writer.flush()
         }
-
-        final List<FailureMirror> failures = result.getFailures()
+        List<FailureMirror> failures = result.getFailures()
         if (!failures.isEmpty()) {
             int count = 0
             for (FailureMirror fm : failures) {
                 count++
                 if (fm.isAssumptionViolation()) {
-                    writer.write(String.format(Locale.ROOT,
-                            'Assumption #%d: %s',
+                    writer.write(sprintf('Assumption #%d: %s\n',
                             count, fm.getMessage() == null ? '(no message)' : fm.getMessage()))
                 } else {
-                    writer.write(String.format(Locale.ROOT,
-                            'Throwable #%d: %s',
-                            count,
+                    writer.write(sprintf('Throwable #%d: %s\n', count,
                             stackFilter.apply(fm.getTrace())))
                 }
             }
@@ -355,10 +346,5 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
     /** Returns true if output should be logged immediately. */
     boolean isPassthrough() {
         return forkedJvmCount == 1 && config.outputMode == TestLoggingConfiguration.OutputMode.ALWAYS
-    }
-
-    @Override
-    void setOuter(JUnit4 task) {
-        owner = task
     }
 }

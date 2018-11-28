@@ -50,11 +50,11 @@ class RandomizedTestingPlugin implements Plugin<Project> {
         }
         Task randomizedTestTask = taskContainer.create([name: 'randomizedTest',
                 type: RandomizedTestingTask,
-                dependsOn: [testTask.dependsOn, 'testClasses'],
+                dependsOn: [testTask.dependsOn, 'testJar'],
                 group: JavaBasePlugin.VERIFICATION_GROUP,
                 description: 'Runs unit tests with randomized testing'
         ])
-        randomizedTestTask.classpath = testTask.classpath
+        randomizedTestTask.modulepath = testTask.classpath
         randomizedTestTask.testClassesDirs = testTask.project.sourceSets.test.output.classesDirs
     }
 }

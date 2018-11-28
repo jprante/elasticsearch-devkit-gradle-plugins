@@ -38,9 +38,5 @@ class MessyTestPlugin extends StandaloneTestPlugin {
         copyPluginMetadata.from(pluginProject.tasks.pluginProperties)
         copyPluginMetadata.from(pluginProject.file('src/main/plugin-metadata'))
         project.sourceSets.test.output.dir(outputDir, builtBy: taskName)
-
-        // add each generated dir to the test classpath in IDEs
-        project.idea.module.singleEntryLibraries= ['TEST': [project.file(outputDir)]]
-        // Eclipse doesn't need this because it gets the entire module as a dependency
     }
 }

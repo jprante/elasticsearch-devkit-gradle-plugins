@@ -1,4 +1,4 @@
-package org.xbib.elasticsearch.test;
+package org.xbib.elasticsearch.test.namingconvention;
 
 import java.io.IOException;
 import java.lang.reflect.Modifier;
@@ -28,6 +28,7 @@ import java.util.Set;
  * Thus, the funky {@code --self-test} that is only run in the test:framework project.
  */
 public class NamingConventionsCheck {
+
     public static void main(String[] args) throws IOException {
         Class<?> testClass = null;
         Class<?> integTestClass = null;
@@ -269,7 +270,7 @@ public class NamingConventionsCheck {
         @Override
         public final FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
             String filename = file.getFileName().toString();
-            if (filename.endsWith(".class")) {
+            if (filename.endsWith(".class") && !filename.contains("module-info")) {
                 String className = filename.substring(0, filename.length() - ".class".length());
                 Class<?> clazz = loadClassWithoutInitializing(packageName + className);
                 if (clazz.getName().endsWith("Tests")) {

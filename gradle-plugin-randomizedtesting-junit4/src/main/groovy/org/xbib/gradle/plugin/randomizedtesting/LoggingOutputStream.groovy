@@ -36,7 +36,7 @@ class LoggingOutputStream extends OutputStream {
         if (b == 0) {
             return
         }
-        if (b == (int)'\n' as char) {
+        if (b == (int)('\n' as char)) {
             // always flush with newlines instead of adding to the buffer
             flush()
             return

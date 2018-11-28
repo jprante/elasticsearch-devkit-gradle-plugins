@@ -67,14 +67,13 @@ class PluginBuildPlugin extends BuildPlugin {
 
     private static void configureDependencies(Project project) {
         project.dependencies {
-            provided "org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}"
-            provided "org.locationtech.spatial4j:spatial4j:${project.property('spatial4j.version')}"
-            provided "org.locationtech.jts:jts-core:${project.property('jts.version')}"
-            provided "org.apache.logging.log4j:log4j-api:${project.property('log4j.version')}"
-            provided "org.apache.logging.log4j:log4j-core:${project.property('log4j.version')}"
-            provided "org.elasticsearch:jna:${project.property('jna.version')}"
-            compileOnly "org.elasticsearch:elasticsearch:${project.property('elasticsearch.version')}"
-            testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('xbib-elasticsearch-test.version')}"
+            provided "org.xbib.elasticsearch:elasticsearch:${project.property('elasticsearch-server.version')}"
+            provided "org.xbib.elasticsearch:spatial4j:${project.property('elasticsearch-libs.version')}"
+            provided "org.xbib.elasticsearch:jts:${project.property('elasticsearch-libs.version')}"
+            provided "org.xbib.elasticsearch:log4j:${project.property('elasticsearch-libs.version')}"
+            provided "org.xbib.elasticsearch:jna:${project.property('elasticsearch-libs.version')}"
+            compileOnly "org.xbib.elasticsearch:elasticsearch:${project.property('elasticsearch-server.version')}"
+            testCompile "org.xbib.elasticsearch:elasticsearch-test-framework:${project.property('elasticsearch-devkit.version')}"
         }
     }
 
@@ -127,17 +126,17 @@ class PluginBuildPlugin extends BuildPlugin {
     /** Adds a task to move jar and associated files to a "-client" name. */
     protected static void addClientJarTask(Project project) {
         Task clientJar = project.tasks.create('clientJar')
-        clientJar.dependsOn(project.jar, 'generatePomFileForClientJarPublication', project.javadocJar, project.sourcesJar)
+        clientJar.dependsOn(project.jar, project.tasks.generatePomFileForClientJarPublication, project.javadocJar, project.sourcesJar)
         clientJar.doFirst {
             Path jarFile = project.jar.outputs.files.singleFile.toPath()
             String clientFileName = jarFile.fileName.toString().replace(project.version as String, "client-${project.version}")
             Files.copy(jarFile, jarFile.resolveSibling(clientFileName), StandardCopyOption.REPLACE_EXISTING)
-
-            String pomFileName = jarFile.fileName.toString().replace('.jar', '.pom')
             String clientPomFileName = clientFileName.replace('.jar', '.pom')
-            Files.copy(jarFile.resolveSibling(pomFileName), jarFile.resolveSibling(clientPomFileName),
-                    StandardCopyOption.REPLACE_EXISTING)
-
+            Files.copy(
+                    project.tasks.generatePomFileForClientJarPublication.outputs.files.singleFile.toPath(),
+                    jarFile.resolveSibling(clientPomFileName),
+                    StandardCopyOption.REPLACE_EXISTING
+            )
             String sourcesFileName = jarFile.fileName.toString().replace('.jar', '-sources.jar')
             String clientSourcesFileName = clientFileName.replace('.jar', '-sources.jar')
             Files.copy(jarFile.resolveSibling(sourcesFileName), jarFile.resolveSibling(clientSourcesFileName),

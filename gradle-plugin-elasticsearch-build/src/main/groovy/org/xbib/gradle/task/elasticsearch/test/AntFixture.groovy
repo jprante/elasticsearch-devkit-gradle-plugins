@@ -1,6 +1,5 @@
 package org.xbib.gradle.task.elasticsearch.test
 
-import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.api.GradleException
 import org.gradle.api.Task
 import org.gradle.api.tasks.Input
@@ -79,13 +78,7 @@ class AntFixture extends AntTask implements Fixture {
         // We need to choose which executable we are using. In shell mode, or when we
         // are spawning and thus using the wrapper script, the executable is the shell.
         if (useShell || spawn) {
-            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                realExecutable = 'cmd'
-                realArgs.add('/C')
-                realArgs.add('"') // quote the entire command
-            } else {
-                realExecutable = 'sh'
-            }
+            realExecutable = 'sh'
         } else {
             realExecutable = executable
             realArgs.addAll(arguments)
@@ -94,9 +87,6 @@ class AntFixture extends AntTask implements Fixture {
             writeWrapperScript(executable)
             realArgs.add(wrapperScript)
             realArgs.addAll(arguments)
-        }
-        if (Os.isFamily(Os.FAMILY_WINDOWS) && (useShell || spawn)) {
-            realArgs.add('"')
         }
         commandString.eachLine { line -> logger.info(line) }
 
@@ -166,10 +156,6 @@ class AntFixture extends AntTask implements Fixture {
         wrapperScript.parentFile.mkdirs()
         String argsPasser = '"$@"'
         String exitMarker = "; if [ \$? != 0 ]; then touch run.failed; fi"
-        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-            argsPasser = '%*'
-            exitMarker = "\r\n if \"%errorlevel%\" neq \"0\" ( type nul >> run.failed )"
-        }
         wrapperScript.setText("\"${executable}\" ${argsPasser} > run.log 2>&1 ${exitMarker}", 'UTF-8')
     }
 
@@ -206,13 +192,8 @@ class AntFixture extends AntTask implements Fixture {
         stop.doFirst {
             logger.info("Shutting down ${fixture.name} with pid ${pid}")
         }
-        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-            stop.executable = 'Taskkill'
-            stop.args('/PID', pid, '/F')
-        } else {
-            stop.executable = 'kill'
-            stop.args('-9', pid)
-        }
+        stop.executable = 'kill'
+        stop.args('-9', pid)
         stop.doLast {
             project.delete(fixture.pidFile)
         }
@@ -254,7 +235,7 @@ class AntFixture extends AntTask implements Fixture {
 
     /** Returns a file that wraps around the actual command when {@code spawn == true}. */
     protected File getWrapperScript() {
-        return new File(cwd, Os.isFamily(Os.FAMILY_WINDOWS) ? 'run.bat' : 'run')
+        return new File(cwd, 'run')
     }
 
     /** Returns a file that the wrapper script writes when the command failed. */

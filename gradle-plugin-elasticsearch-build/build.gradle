@@ -5,24 +5,16 @@ plugins {
 apply plugin: 'groovy'
 apply plugin: "com.gradle.plugin-publish"
 
-repositories {
-    jcenter()
-    maven {
-        url "https://repo.gradle.org/gradle/libs-releases-local/"
-    }
-}
-
 dependencies {
-    compile gradleApi()
-    compile localGroovy()
+    compileOnly gradleApi()
     compile project(':gradle-plugin-randomizedtesting-junit4')
-    compile("junit:junit:${project.property('junit.version')}") {
-        transitive = false
-    }
-    compile "de.thetaphi:forbiddenapis:${project.property('forbiddenapis.version')}"
+    compile project(':gradle-plugin-forbiddenapis')
     compile "org.apache.rat:apache-rat:${project.property('apache-rat.version')}"
-    compile "org.elasticsearch:jna:${project.property('jna.version')}"
-    compileOnly "org.gradle:gradle-logging:${gradle.gradleVersion}"
+    compile "org.xbib.elasticsearch:jna:${project.property('elasticsearch-libs.version')}"
+    compile "org.xbib.elasticsearch:log4j:${project.property('elasticsearch-libs.version')}"
+    testCompile gradleTestKit()
+    testCompile "org.spockframework:spock-core:${project.property('spock.version')}"
+
 }
 
 task injectGradleProperties(type: Copy) {
@@ -41,23 +33,14 @@ jar {
     }
 }
 
-test {
-    testLogging {
-        showStandardStreams = false
-        exceptionFormat = 'full'
-    }
-}
-
-task sourcesJar(type: Jar, dependsOn: classes) {
+task sourcesJar(type: Jar) {
     classifier 'sources'
     from sourceSets.main.allSource
 }
 
 groovydoc {
     docTitle = description
-    groovyClasspath = tasks.jar.outputs.files
-    groovyClasspath += configurations.compile
-    groovyClasspath += configurations.runtime
+    groovyClasspath = files(tasks.jar.outputs.files, configurations.compile, configurations.runtime)
 }
 
 task groovydocJar(type: Jar, dependsOn: 'groovydoc') {
@@ -71,8 +54,8 @@ artifacts {
 
 if (project.hasProperty('gradle.publish.key')) {
     pluginBundle {
-        website = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
-        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit/'
+        website = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/'
         plugins {
             esBuildPlugin {
                 id = 'org.xbib.gradle.plugin.elasticsearch.build'
@@ -140,3 +123,5 @@ if (project.hasProperty('gradle.publish.key')) {
         }
     }
 }
+
+apply from: "${rootProject.projectDir}/gradle/publish.gradle"

@@ -28,7 +28,7 @@ class JarHellTask extends LoggedResultJavaExec {
                   filter it ourselves. */
                 FileCollection taskClasspath = fileCollection.filter { it.exists() }
                 classpath taskClasspath.asPath
-                main = 'org.elasticsearch.bootstrap.JarHellForJava9'
+                main = 'org.elasticsearch.bootstrap.JarHell'
             })
             doLast({
                 successMarker.parentFile.mkdirs()

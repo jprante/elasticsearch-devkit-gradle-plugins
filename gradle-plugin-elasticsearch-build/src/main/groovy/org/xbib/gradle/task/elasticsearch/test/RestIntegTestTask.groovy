@@ -3,7 +3,7 @@ package org.xbib.gradle.task.elasticsearch.test
 import org.gradle.api.DefaultTask
 import org.gradle.api.Task
 import org.gradle.api.execution.TaskExecutionAdapter
-import org.gradle.api.internal.tasks.options.Option
+import org.gradle.api.tasks.options.Option
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskState
 import org.xbib.gradle.plugin.elasticsearch.build.BuildPlugin
@@ -32,13 +32,14 @@ class RestIntegTestTask extends DefaultTask {
     boolean includePackaged = false
 
     RestIntegTestTask() {
-        runner = project.tasks.create("${name}Runner", RandomizedTestingTask.class)
+        runner = project.tasks.create("${name}Runner", RandomizedTestingTask)
         super.dependsOn(runner)
         clusterInit = project.tasks.create(name: "${name}Cluster#init", dependsOn: project.testClasses)
         runner.dependsOn(clusterInit)
-        runner.classpath = project.sourceSets.test.runtimeClasspath
+        runner.modulepath = project.sourceSets.test.runtimeClasspath
         runner.testClassesDirs = project.sourceSets.test.output.classesDirs
-        clusterConfig = project.extensions.create("${name}Cluster", ClusterConfiguration.class, project)
+        clusterConfig = project.extensions.create("${name}Cluster", ClusterConfiguration, project) as ClusterConfiguration
+        clusterConfig.environment('JAVA_HOME', System.getProperty('java.home'))
 
         // start with the common test configuration
         runner.configure(BuildPlugin.commonTestConfig(project))
@@ -162,6 +163,5 @@ class RestIntegTestTask extends DefaultTask {
             stream.close()
         }
         println('=========================================')
-
     }
 }

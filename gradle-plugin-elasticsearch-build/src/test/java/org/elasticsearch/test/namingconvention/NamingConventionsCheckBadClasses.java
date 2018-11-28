@@ -1,4 +1,4 @@
-package org.elasticsearch.test;
+package org.elasticsearch.test.namingconvention;
 
 import junit.framework.TestCase;
 

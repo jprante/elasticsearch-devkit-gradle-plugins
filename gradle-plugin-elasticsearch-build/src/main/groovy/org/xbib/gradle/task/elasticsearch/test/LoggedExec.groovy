@@ -11,6 +11,7 @@ class LoggedExec extends Exec {
     protected ByteArrayOutputStream output = new ByteArrayOutputStream()
 
     LoggedExec() {
+        environment('JAVA_HOME', System.getProperty('java.home'))
         if (!logger.isInfoEnabled()) {
             standardOutput = output
             errorOutput = output

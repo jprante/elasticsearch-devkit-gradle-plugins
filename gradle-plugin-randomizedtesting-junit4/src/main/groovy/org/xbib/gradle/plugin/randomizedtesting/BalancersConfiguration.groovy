@@ -11,7 +11,11 @@ class BalancersConfiguration {
 
     List<SuiteBalancer> balancers = []
 
-    void executionTime(Map<String,Object> properties) {
+    BalancersConfiguration(RandomizedTestingTask task) {
+        this.task = task
+    }
+
+    void executionTime(Map<String, Object> properties) {
         ExecutionTimeBalancer balancer = new ExecutionTimeBalancer()
         FileSet fileSet = new FileSet()
         Object filename = properties.remove('cacheFilename')

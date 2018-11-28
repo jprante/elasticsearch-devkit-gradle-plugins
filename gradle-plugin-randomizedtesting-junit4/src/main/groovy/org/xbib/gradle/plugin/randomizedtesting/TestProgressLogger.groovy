@@ -1,7 +1,7 @@
 package org.xbib.gradle.plugin.randomizedtesting
 
 import com.carrotsearch.ant.tasks.junit4.JUnit4
-import com.carrotsearch.ant.tasks.junit4.dependencies.com.google.common.eventbus.Subscribe
+import com.google.common.eventbus.Subscribe
 import com.carrotsearch.ant.tasks.junit4.events.aggregated.AggregatedStartEvent
 import com.carrotsearch.ant.tasks.junit4.events.aggregated.AggregatedSuiteResultEvent
 import com.carrotsearch.ant.tasks.junit4.events.aggregated.AggregatedTestResultEvent
@@ -59,6 +59,10 @@ class TestProgressLogger implements AggregatedEventListener {
     volatile boolean suiteFinished = false
     /* Note that we probably overuse volatile here but it isn't hurting us and
        lets us move things around without worrying about breaking things. */
+
+    TestProgressLogger(ProgressLoggerFactory factory) {
+        this.factory = factory
+    }
 
     @Subscribe
     void onStart(AggregatedStartEvent e) throws IOException {

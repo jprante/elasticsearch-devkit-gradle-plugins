@@ -48,13 +48,6 @@ class RestSpecHack {
             }
             into project.sourceSets.test.output.resourcesDir
         }
-        /*project.idea {
-            module {
-                if (scopes.TEST != null) {
-                    scopes.TEST.plus.add(project.configurations.restSpec)
-                }
-            }
-        }*/
         return copyRestSpec
     }
 }

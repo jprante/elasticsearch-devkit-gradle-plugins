@@ -10,8 +10,7 @@ repositories {
 }
 
 dependencies {
-    compile gradleApi()
-    compile localGroovy()
+    compileOnly gradleApi()
 }
 
 jar {
@@ -63,3 +62,5 @@ if (project.hasProperty('gradle.publish.key')) {
         }
     }
 }
+
+apply from: "${rootProject.projectDir}/gradle/publish.gradle"

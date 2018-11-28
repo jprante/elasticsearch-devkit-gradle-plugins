@@ -5,17 +5,10 @@ plugins {
 apply plugin: 'groovy'
 apply plugin: "com.gradle.plugin-publish"
 
-repositories {
-    jcenter()
-    maven {
-        url "https://repo.gradle.org/gradle/libs-releases-local/"
-    }
-}
 
 dependencies {
     compile gradleApi()
     compile localGroovy()
-    compileOnly "org.gradle:gradle-logging:${gradle.gradleVersion}"
 }
 
 jar {
@@ -74,3 +67,5 @@ if (project.hasProperty('gradle.publish.key')) {
         }
     }
 }
+
+apply from: "${rootProject.projectDir}/gradle/publish.gradle"

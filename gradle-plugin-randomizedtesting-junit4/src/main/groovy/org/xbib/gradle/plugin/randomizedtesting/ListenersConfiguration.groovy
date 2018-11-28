@@ -5,8 +5,14 @@ import com.carrotsearch.ant.tasks.junit4.listeners.antxml.AntXmlReport
 import com.carrotsearch.ant.tasks.junit4.listeners.json.JsonReport
 
 class ListenersConfiguration {
+
     RandomizedTestingTask task
-    List<AggregatedEventListener> listeners = new ArrayList<>()
+
+    List<AggregatedEventListener> listeners = []
+
+    ListenersConfiguration(RandomizedTestingTask task) {
+        this.task = task
+    }
 
     void junitXmlReport(Map<String, Object> props) {
         AntXmlReport reportListener = new AntXmlReport()
