@@ -82,7 +82,7 @@ class PluginBuildPlugin extends BuildPlugin {
         testSourceSet.resources.srcDir(pluginMetadata)
 
         // create the actual bundle task, which zips up all the files for the plugin
-        Task bundle = project.tasks.create(name: 'bundlePlugin', type: Zip, dependsOn: [project.jar, buildProperties]) {
+        Task zip = project.tasks.create(name: 'bundlePlugin', type: Zip, dependsOn: [project.jar, buildProperties]) {
             from(buildProperties.descriptorOutput.parentFile) {
                 // plugin properties file
                 include(buildProperties.descriptorOutput.name)
@@ -97,11 +97,10 @@ class PluginBuildPlugin extends BuildPlugin {
                 include 'bin/**'
             }
         }
-        project.assemble.dependsOn(bundle)
-
+        project.assemble.dependsOn(zip)
         // also make the zip available as a configuration (used when depending on this project)
         project.configurations.create('zip')
-        project.artifacts.add('zip', bundle)
+        project.artifacts.add('zip', zip)
     }
 
     protected void addNoticeGeneration(Project project) {

@@ -10,7 +10,6 @@ import org.apache.tools.ant.Project
 import org.apache.tools.ant.RuntimeConfigurable
 import org.apache.tools.ant.UnknownElement
 import org.gradle.api.DefaultTask
-import org.gradle.api.GradleException
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileTreeElement
@@ -332,6 +331,23 @@ class RandomizedTestingTask extends DefaultTask {
         }
     }
 
+    /**
+     * Makes an ant xml element for 'listeners' just as AntBuilder would, except configuring
+     * the element adds the already created children.
+     */
+    def makeListeners() {
+        def context = ant.getAntXmlContext()
+        def parentWrapper = context.currentWrapper()
+        def parent = parentWrapper.getProxy()
+        UnknownElement element = new ListenersElement(listeners: listenersConfig.listeners)
+        element.setProject(context.getProject())
+        element.setRealThing(logger)
+        ((UnknownElement)parent).addChild(element)
+        RuntimeConfigurable wrapper = new RuntimeConfigurable(element, element.getQName())
+        parentWrapper.addChild(wrapper)
+        return wrapper.getProxy()
+    }
+
     static class ListenersElement extends UnknownElement {
         AggregatedEventListener[] listeners
 
@@ -349,22 +365,5 @@ class RandomizedTestingTask extends DefaultTask {
                 }
             }
         }
-    }
-
-    /**
-     * Makes an ant xml element for 'listeners' just as AntBuilder would, except configuring
-     * the element adds the already created children.
-     */
-    def makeListeners() {
-        def context = ant.getAntXmlContext()
-        def parentWrapper = context.currentWrapper()
-        def parent = parentWrapper.getProxy()
-        UnknownElement element = new ListenersElement(listeners: listenersConfig.listeners)
-        element.setProject(context.getProject())
-        element.setRealThing(logger)
-        ((UnknownElement)parent).addChild(element)
-        RuntimeConfigurable wrapper = new RuntimeConfigurable(element, element.getQName())
-        parentWrapper.addChild(wrapper)
-        return wrapper.getProxy()
     }
 }

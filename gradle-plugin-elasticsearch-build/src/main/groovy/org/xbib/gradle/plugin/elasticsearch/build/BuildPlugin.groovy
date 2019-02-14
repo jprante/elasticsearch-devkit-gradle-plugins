@@ -283,11 +283,12 @@ Welcome to xbib's Elasticsearch dev kit gradle build plugin. Meouw.
             systemProperty 'tests.gradle', 'true'
             systemProperty 'tests.artifact', project.name
             systemProperty 'tests.task', path
-            systemProperty 'tests.security.manager', 'true'
+            systemProperty 'tests.security.manager', System.getProperty('tests.security.manager','true')
             systemProperty 'jna.nosys', 'true'
             // default test sysprop values
             systemProperty 'tests.ifNoTests', 'fail'
-            systemProperty 'tests.logger.level', System.getProperty('tests.logger.level', 'WARN')
+            systemProperty 'tests.logger.level', System.getProperty('tests.logger.level', 'DEBUG')
+            // override system properties
             for (Map.Entry<Object, Object> property : System.properties.entrySet()) {
                 String key = property.getKey().toString()
                 if (key.startsWith('tests.') || key.startsWith('es.')) {
@@ -411,7 +412,7 @@ Welcome to xbib's Elasticsearch dev kit gradle build plugin. Meouw.
         project.tasks.check.dependsOn(quality)
         // only require dependency licenses for non-elasticsearch deps
         project.dependencyLicenses.dependencies = project.configurations.runtime.fileCollection {
-            (!it.group.startsWith('org.elasticsearch'))
+            (!it.group.startsWith('org.elasticsearch') && (!it.group.startsWith('org.xbib.elasticsearch')))
         } - project.configurations.provided
     }
 
