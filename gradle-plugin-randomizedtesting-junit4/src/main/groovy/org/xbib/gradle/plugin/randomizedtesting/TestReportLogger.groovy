@@ -96,8 +96,8 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
         forkedJvmCount = e.getSlaveCount()
         jvmIdFormat = " J%-" + (1 + (int) Math.floor(Math.log10(forkedJvmCount))) + "d"
 
-        outStream = new LoggingOutputStream(logger: logger, level: LogLevel.LIFECYCLE, prefix: "  1> ")
-        errStream = new LoggingOutputStream(logger: logger, level: LogLevel.ERROR, prefix: "  2> ")
+        outStream = new LoggingOutputStream(logger: logger, level: config.logLevel, prefix: "  out> ")
+        errStream = new LoggingOutputStream(logger: logger, level: config.logLevel, prefix: "  err> ")
 
         for (String contains : config.stackTraceFilters.contains) {
             TokenFilter.ContainsString containsFilter = new TokenFilter.ContainsString()
@@ -212,7 +212,8 @@ class TestReportLogger extends TestsSummaryEventListener implements AggregatedEv
         if (config.slowTests.summarySize > 0) {
             suiteTimes.put(e.getDescription().getDisplayName(), e.getExecutionTime())
         }
-        LogLevel level = e.isSuccessful() && config.outputMode != TestLoggingConfiguration.OutputMode.ALWAYS ? LogLevel.INFO : LogLevel.LIFECYCLE
+        LogLevel level = e.isSuccessful() && config.outputMode != TestLoggingConfiguration.OutputMode.ALWAYS ?
+                LogLevel.INFO : LogLevel.LIFECYCLE
         // We must emit buffered test and stream events (in case of failures).
         if (!isPassthrough()) {
             emitSuiteStart(level, e.getDescription())

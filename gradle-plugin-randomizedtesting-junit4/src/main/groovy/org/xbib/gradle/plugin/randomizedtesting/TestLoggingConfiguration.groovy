@@ -1,7 +1,9 @@
 package org.xbib.gradle.plugin.randomizedtesting
 
+import org.gradle.api.logging.LogLevel
 import org.gradle.api.tasks.Input
 import org.gradle.util.ConfigureUtil
+
 
 class TestLoggingConfiguration {
     /** Display mode for output streams. */
@@ -18,12 +20,16 @@ class TestLoggingConfiguration {
     }
 
     OutputMode outputMode = OutputMode.ONERROR
+
     SlowTestsConfiguration slowTests = new SlowTestsConfiguration()
+
     StackTraceFiltersConfiguration stackTraceFilters = new StackTraceFiltersConfiguration()
 
     /** Summarize the first N failures at the end of the test. */
     @Input
     int showNumFailuresAtEnd = 3 // match TextReport default
+
+    LogLevel logLevel = LogLevel.INFO
 
     void slowTests(Closure closure) {
         ConfigureUtil.configure(closure, slowTests)
@@ -39,5 +45,9 @@ class TestLoggingConfiguration {
 
     void showNumFailuresAtEnd(int n) {
         showNumFailuresAtEnd = n
+    }
+
+    void level(LogLevel level) {
+        logLevel = level
     }
 }
