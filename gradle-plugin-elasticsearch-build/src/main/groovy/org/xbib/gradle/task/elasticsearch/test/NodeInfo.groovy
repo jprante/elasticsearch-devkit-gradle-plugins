@@ -248,6 +248,7 @@ class NodeInfo {
     static File homeDir(File baseDir, String distro, String nodeVersion) {
         String path
         switch (distro) {
+            case 'integ-test-tar':
             case 'integ-test-zip':
             case 'zip':
             case 'tar':
@@ -265,6 +266,7 @@ class NodeInfo {
 
     static File pathConf(File baseDir, String distro, String nodeVersion) {
         switch (distro) {
+            case 'integ-test-tar':
             case 'integ-test-zip':
             case 'zip':
             case 'tar':

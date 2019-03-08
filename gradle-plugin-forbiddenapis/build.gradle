@@ -54,8 +54,8 @@ artifacts {
 
 if (project.hasProperty('gradle.publish.key')) {
     pluginBundle {
-        website = 'https://github.com/jprante/elasticsearch-xbib-devkit-gradle-plugins/gradle-plugin-forbiddenapis'
-        vcsUrl = 'https://github.com/jprante/elasticsearch-xbib-devkit-gradle-plugins/gradle-plugin-forbiddenapis'
+        website = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/gradle-plugin-forbiddenapis'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/gradle-plugin-forbiddenapis'
         plugins {
             forbiddenApisPlugin {
                 id = 'org.xbib.gradle.plugin.forbiddenapis'

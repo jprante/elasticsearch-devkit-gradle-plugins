@@ -51,7 +51,7 @@ task sonaTypeUpload(type: Upload, dependsOn: build) {
                     artifactId project.name
                     version project.version
                     name project.name
-                    description 'A developer kit for building and testing Elasticsearch and Elasticsearch plugins'
+                    description 'Gradle plugins for the developer kit for building and testing Elasticsearch and Elasticsearch plugins'
                     packaging 'jar'
                     inceptionYear '2018'
                     url 'https://github.com/jprante/elasticsearch-xbib-devkit'
@@ -68,9 +68,9 @@ task sonaTypeUpload(type: Upload, dependsOn: build) {
                         }
                     }
                     scm {
-                        url 'https://github.com/jprante/elasticsearch-xbib-devkit'
-                        connection 'scm:git:git@github.com/jprante/elasticsearch-xbib-devkit.git'
-                        developerConnection 'scm:git:git@github.com/jprante/elasticsearch-xbib-devkit.git'
+                        url 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins'
+                        connection 'scm:git:git@github.com/jprante/elasticsearch-devkit-gradle-plugins.git'
+                        developerConnection 'scm:git:git@github.com/jprante/elasticsearch-devkit-gradle-plugins.git'
                     }
                     licenses {
                         license {
@@ -83,6 +83,7 @@ task sonaTypeUpload(type: Upload, dependsOn: build) {
         }
     }
 }
+
 nexusStaging {
     packageGroup = "org.xbib"
 }

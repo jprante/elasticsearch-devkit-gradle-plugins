@@ -54,8 +54,8 @@ artifacts {
 
 if (project.hasProperty('gradle.publish.key')) {
     pluginBundle {
-        website = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/'
-        vcsUrl = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/'
+        website = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/gradle-plugin-elasticsearch-build'
+        vcsUrl = 'https://github.com/jprante/elasticsearch-devkit-gradle-plugins/gradle-plugin-elasticsearch-build'
         plugins {
             esBuildPlugin {
                 id = 'org.xbib.gradle.plugin.elasticsearch.build'
