@@ -53,7 +53,18 @@ class ClusterConfiguration {
 
     @Input
     String jvmArgs = "-Xms" + System.getProperty('tests.heap.size', '1g') +
-        " " + "-Xmx" + System.getProperty('tests.heap.size', '1g') +
+        " -Xmx" + System.getProperty('tests.heap.size', '1g') +
+        " -Dfile.encoding=UTF-8" +
+        " -Djava.awt.headless=true" +
+        " -Djava.security.debug=access,failure" +
+        " -Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager" +
+        " -Djna.nosys=true" +
+        " -Dio.netty.noUnsafe=true" +
+        " -Dio.netty.noKeySetOptimization=true" +
+        " -Dio.netty.recycler.maxCapacityPerThread=0" +
+        " -Dlog4j.shutdownHookEnabled=false" +
+        " -Dlog4j2.disable.jmx=true" +
+        " --add-modules=jdk.unsupported" +
         " " + System.getProperty('tests.jvm.argline', '')
 
     /**
@@ -179,8 +190,8 @@ class ClusterConfiguration {
      */
     @Input
     void extraConfigFile(String path, Object sourceFile) {
-        if (path == 'elasticsearch.yml') {
-            throw new GradleException('Overwriting elasticsearch.yml is not allowed, add additional settings using cluster { setting "foo", "bar" }')
+        if (path == 'elasticsearch.json') {
+            throw new GradleException('Overwriting elasticsearch.json is not allowed, add additional settings using cluster { setting "foo", "bar" }')
         }
         extraConfigFiles.put(path, sourceFile)
     }

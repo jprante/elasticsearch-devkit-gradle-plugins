@@ -14,7 +14,6 @@ dependencies {
     compile "org.xbib.elasticsearch:randomizedtesting-junit4-ant:${project.property('elasticsearch-libs.version')}"
     testCompile gradleTestKit()
     testCompile "org.spockframework:spock-core:${project.property('spock.version')}"
-
 }
 
 jar {

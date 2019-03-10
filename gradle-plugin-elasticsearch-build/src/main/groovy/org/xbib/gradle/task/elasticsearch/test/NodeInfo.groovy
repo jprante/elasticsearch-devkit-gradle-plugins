@@ -81,8 +81,14 @@ class NodeInfo {
     /** the version of elasticsearch that this node runs */
     String nodeVersion
 
+    /**
+     * The version of the Elasticsearch distributions package
+     */
+    String distVersion
+
     /** Holds node configuration for part of a test cluster. */
-    NodeInfo(ClusterConfiguration config, int nodeNum, Project project, String prefix, String nodeVersion, File sharedDir) {
+    NodeInfo(ClusterConfiguration config, int nodeNum, Project project, String prefix,
+             String nodeVersion, Object distVersion, File sharedDir) {
         this.config = config
         this.nodeNum = nodeNum
         this.sharedDir = sharedDir
@@ -94,14 +100,15 @@ class NodeInfo {
         baseDir = new File(project.buildDir, "cluster/${prefix} node${nodeNum}")
         pidFile = new File(baseDir, 'es.pid')
         this.nodeVersion = nodeVersion
-        homeDir = homeDir(baseDir, config.distribution, nodeVersion)
-        pathConf = pathConf(baseDir, config.distribution, nodeVersion)
+        this.distVersion = distVersion
+        homeDir = homeDir(baseDir, config.distribution, distVersion.toString())
+        pathConf = pathConf(baseDir, config.distribution, distVersion.toString())
         if (config.dataDir != null) {
             dataDir = "${config.dataDir(nodeNum)}"
         } else {
             dataDir = new File(homeDir, "data")
         }
-        configFile = new File(pathConf, 'elasticsearch.yml')
+        configFile = new File(pathConf, 'elasticsearch.json')
         // even for rpm/deb, the logs are under home because we dont start with real services
         File logsDir = new File(homeDir, 'logs')
         httpPortsFile = new File(logsDir, 'http.ports')
@@ -145,7 +152,11 @@ class NodeInfo {
         env = [:]
         env.putAll(config.environmentVariables)
         args.addAll("-E", "node.portsfile=true")
-        String collectedSystemProperties = config.systemProperties.collect { key, value -> "-D${key}=${value}" }.join(" ")
+        args.add("-p")
+        args.add(pidFile.toString())
+        String collectedSystemProperties = config.systemProperties.collect {
+            key, value -> "-D${key}=${value}"
+        }.join(" ")
         String esJavaOpts = config.jvmArgs.isEmpty() ? collectedSystemProperties : collectedSystemProperties + " " + config.jvmArgs
         if (Boolean.parseBoolean(System.getProperty('tests.asserts', 'true'))) {
             esJavaOpts += " -ea -esa"
@@ -205,7 +216,7 @@ class NodeInfo {
             esCommandString += "|\n|  [${wrapperScript.name}]\n"
             wrapperScript.eachLine('UTF-8', { line -> esCommandString += "    ${line}\n"})
         }
-        esCommandString += '|\n|  [elasticsearch.yml]\n'
+        esCommandString += '|\n|  [elasticsearch.json]\n'
         configFile.eachLine('UTF-8', { line -> esCommandString += "|    ${line}\n" })
         esCommandString += "|-----------------------------------------"
         return esCommandString
@@ -245,14 +256,14 @@ class NodeInfo {
     }
 
     /** Returns the directory elasticsearch home is contained in for the given distribution */
-    static File homeDir(File baseDir, String distro, String nodeVersion) {
+    static File homeDir(File baseDir, String distro, String version) {
         String path
         switch (distro) {
             case 'integ-test-tar':
             case 'integ-test-zip':
             case 'zip':
             case 'tar':
-                path = "elasticsearch-${nodeVersion}"
+                path = "elasticsearch-${version}"
                 break
             case 'rpm':
             case 'deb':
@@ -264,13 +275,13 @@ class NodeInfo {
         return new File(baseDir, path)
     }
 
-    static File pathConf(File baseDir, String distro, String nodeVersion) {
+    static File pathConf(File baseDir, String distro, String version) {
         switch (distro) {
             case 'integ-test-tar':
             case 'integ-test-zip':
             case 'zip':
             case 'tar':
-                return new File(homeDir(baseDir, distro, nodeVersion), 'config')
+                return new File(homeDir(baseDir, distro, version), 'conf')
             case 'rpm':
             case 'deb':
                 return new File(baseDir, "${distro}-extracted/etc/elasticsearch")

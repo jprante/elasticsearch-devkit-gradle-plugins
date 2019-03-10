@@ -27,7 +27,8 @@ class BuildPluginTests extends Specification {
                 .build()
         project.version = version
         project.ext['elasticsearch.version'] = '6.3.2'
-        project.ext['elasticsearch-devkit.version'] = '6.3.2.4'
+        project.ext['elasticsearch-devkit.version'] = '6.3.2.6'
+        project.ext['elasticsearch-server.version'] = '6.3.2.2'
         project.ext['checkstyle.version'] = '8.13'
 
         when:

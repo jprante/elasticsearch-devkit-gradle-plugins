@@ -1,5 +1,6 @@
 package org.xbib.gradle.task.elasticsearch.test
 
+import groovy.json.JsonBuilder
 import org.apache.log4j.LogManager
 import org.apache.log4j.Logger
 import org.apache.tools.ant.DefaultLogger
@@ -70,7 +71,8 @@ class ClusterFormationTasks {
         Configuration bwcDistro = project.configurations.create("${prefix}_elasticsearchBwcDistro")
         Configuration bwcPlugins = project.configurations.create("${prefix}_elasticsearchBwcPlugins")
         configureDistributionDependency(project, config.distribution, currentDistro,
-                VersionProperties.getVersion('elasticsearch'))
+                project.property('elasticsearch-server.version')
+        )
         if (config.numBwcNodes > 0) {
             if (config.bwcVersion == null) {
                 throw new IllegalArgumentException("Must specify bwcVersion when numBwcNodes > 0")
@@ -96,7 +98,8 @@ class ClusterFormationTasks {
                 elasticsearchVersion = config.bwcVersion
                 distro = bwcDistro
             }
-            NodeInfo node = new NodeInfo(config, i, project, prefix, elasticsearchVersion, sharedDir)
+            NodeInfo node = new NodeInfo(config, i, project, prefix, elasticsearchVersion,
+                    project.property('elasticsearch-server.version'), sharedDir)
             nodes.add(node)
             Object dependsOn = startTasks.empty ? startDependencies : startTasks.get(0)
             startTasks.add(configureNode(project, prefix, runner, dependsOn, node, config, distro, nodes.get(0)))
@@ -107,21 +110,26 @@ class ClusterFormationTasks {
         nodes
     }
 
-    /** Adds a dependency on the given distribution */
-    static void configureDistributionDependency(Project project, String distro, Configuration configuration, String version) {
+    /**
+     * Adds a dependency on the given distribution
+     */
+    static void configureDistributionDependency(Project project, String distro, Configuration configuration, Object version) {
         String packaging = distro
         if (distro == 'tar') {
-            packaging = 'tar.gz'
+            packaging = 'tgz'
         } else if (distro == 'integ-test-tar') {
-            packaging = 'tar.gz'
+            packaging = 'tgz'
         } else if (distro == 'integ-test-zip') {
             packaging = 'zip'
         }
         project.dependencies.add(configuration.name,
-                "org.xbib.elasticsearch:elasticsearch:${version}:${packaging}")
+                "org.xbib.elasticsearch:elasticsearch:${version}@${packaging}")
     }
 
-    /** Adds a dependency on a different version of the given plugin, which will be retrieved using gradle's dependency resolution */
+    /**
+     * Adds a dependency on a different version of the given plugin, which will be retrieved
+     * using gradle's dependency resolution.
+     */
     static void configureBwcPluginDependency(String name, Project project, Project pluginProject,
                                              Configuration configuration, String version) {
         verifyProjectHasBuildPlugin(name, version, project, pluginProject)
@@ -149,7 +157,6 @@ class ClusterFormationTasks {
      */
     static Task configureNode(Project project, String prefix, Task runner, Object dependsOn, NodeInfo node, ClusterConfiguration config,
                               Configuration distribution, NodeInfo seedNode) {
-
         // tasks are chained so their execution order is maintained
         Task setup = project.tasks.create(name: taskName(prefix, node, 'clean'), type: Delete, dependsOn: dependsOn) {
             delete node.homeDir
@@ -170,7 +177,7 @@ class ClusterFormationTasks {
         setup = configureAddKeystoreSettingTasks(prefix, project, setup, node)
 
         if (!node.config.plugins.isEmpty()) {
-            if (node.nodeVersion == VersionProperties.getVersion('elasticsearch')) {
+            if (node.nodeVersion == project.property('elasticsearch.version')) {
                 setup = configureCopyPluginsTask(taskName(prefix, node, 'copyPlugins'), project, setup, node, prefix)
             } else {
                 setup = configureCopyBwcPluginsTask(taskName(prefix, node, 'copyBwcPlugins'), project, setup, node, prefix)
@@ -253,12 +260,13 @@ class ClusterFormationTasks {
         extract
     }
 
-    /** Adds a task to write elasticsearch.yml for the given node configuration */
+    /**
+     * Adds a task to write elasticsearch.json for the given node configuration.
+     */
     static Task configureWriteConfigTask(String name, Project project, Task setup, NodeInfo node, NodeInfo seedNode) {
         Map esConfig = [
                 'cluster.name'                 : node.clusterName,
                 'node.name'                    : "node-" + node.nodeNum,
-                'pidfile'                      : node.pidFile,
                 'path.repo'                    : "${node.sharedDir}/repo",
                 'path.shared_data'             : "${node.sharedDir}/",
                 // Define a node attribute so we can test that it exists
@@ -292,27 +300,47 @@ class ClusterFormationTasks {
             if (unicastTransportUri != null) {
                 esConfig['discovery.zen.ping.unicast.hosts'] = "\"${unicastTransportUri}\""
             }
-            File configFile = new File(node.pathConf, 'elasticsearch.yml')
-            logger.info("configuring file: ${configFile}")
-            configFile.setText(esConfig.collect { key, value -> "${key}: ${value}" }.join('\n'), 'UTF-8')
+            File configFile = new File(node.pathConf, 'elasticsearch.json')
+            logger.info("configuring elasticsearch: ${configFile}")
+            def props = new Properties()
+            props.putAll(esConfig)
+            def conf = new ConfigSlurper().parse(props)
+            def json = new JsonBuilder(conf)
+            configFile.setText(json.toPrettyString(), 'UTF-8')
         }
     }
 
     static Task configureJvmOptions(String name, Project project, Task setup, NodeInfo node) {
         Task writeJvmOptions = project.tasks.create(name: name, type: DefaultTask, dependsOn: setup)
         writeJvmOptions.doFirst {
+            File jvmOptionsFile = new File(node.pathConf, 'jvm.options')
             URL url = getClass().getResource('/jvm.options')
             if (url) {
-                File jvmOptionsFile = new File(node.pathConf, 'jvm.options')
                 jvmOptionsFile.setText(url.text, 'UTF-8')
-                logger.info("configuring JVM: ${url.text}")
+                logger.info("configuring JVM options from resources: ${url.text}")
             } else {
-                logger.info('no jvm.options found')
+                String jvmOptions = '''
+-Dfile.encoding=UTF-8
+-Djava.awt.headless=true
+-Djava.util.logging.manager=org.apache.logging.log4j.jul.LogManager
+-Djava.io.tmpdir=${ES_TMPDIR}
+-Djna.nosys=true
+-Dio.netty.noUnsafe=true
+-Dio.netty.noKeySetOptimization=true
+-Dio.netty.recycler.maxCapacityPerThread=0
+-Dlog4j.shutdownHookEnabled=false
+-Dlog4j2.disable.jmx=true
+--add-modules=jdk.unsupported
+'''
+                jvmOptionsFile.setText(jvmOptions)
+                logger.info("configuring JVM options from default")
             }
         }
     }
 
-    /** Adds a task to create keystore */
+    /**
+     * Adds a task to create keystore.
+     */
     static Task configureCreateKeystoreTask(String name, Project project, Task setup, NodeInfo node) {
         if (node.config.keystoreSettings.isEmpty()) {
             return setup
@@ -322,7 +350,9 @@ class ClusterFormationTasks {
         }
     }
 
-    /** Adds tasks to add settings to the keystore */
+    /**
+     * Adds tasks to add settings to the keystore.
+     */
     static Task configureAddKeystoreSettingTasks(String parent, Project project, Task setup, NodeInfo node) {
         Map kvs = node.config.keystoreSettings
         Task parentTask = setup
@@ -345,7 +375,7 @@ class ClusterFormationTasks {
             return setup
         }
         Copy copyConfig = project.tasks.create(name: name, type: Copy, dependsOn: setup) as Copy
-        File configDir = new File(node.homeDir, 'config')
+        File configDir = new File(node.homeDir, 'conf')
         copyConfig.into(configDir) // copy must always have a general dest dir, even though we don't use it
         for (Map.Entry<String,Object> extraConfigFile : node.config.extraConfigFiles.entrySet()) {
             Object extraConfigFileValue = extraConfigFile.getValue()
@@ -359,7 +389,7 @@ class ClusterFormationTasks {
                     throw new GradleException("source file for extraConfigFile does not exist: ${srcConfigFile}")
                 }
             }
-            File destConfigFile = new File(node.homeDir, 'config/' + extraConfigFile.getKey())
+            File destConfigFile = new File(node.homeDir, 'conf/' + extraConfigFile.getKey())
             // wrap source file in closure to delay resolution to execution time
             copyConfig.from({ extraConfigFileValue }) {
                 // this must be in a closure so it is only applied to the single file specified in from above
@@ -378,10 +408,8 @@ class ClusterFormationTasks {
      */
     static Task configureCopyPluginsTask(String name, Project project, Task setup, NodeInfo node, String prefix) {
         Copy copyPlugins = project.tasks.create(name: name, type: Copy, dependsOn: setup) as Copy
-
         List<FileCollection> pluginFiles = []
         for (Map.Entry<String, Project> plugin : node.config.plugins.entrySet()) {
-
             Project pluginProject = plugin.getValue()
             verifyProjectHasBuildPlugin(name, node.nodeVersion, project, pluginProject)
             String configurationName = pluginConfigurationName(prefix, pluginProject)
@@ -389,9 +417,9 @@ class ClusterFormationTasks {
             if (configuration == null) {
                 configuration = project.configurations.create(configurationName)
             }
-            project.dependencies.add(configurationName, project.dependencies.project(path: pluginProject.path, configuration: 'zip'))
+            project.dependencies.add(configurationName,
+                    project.dependencies.project(path: pluginProject.path, configuration: 'zip'))
             setup.dependsOn(pluginProject.tasks.bundlePlugin)
-
             // also allow rest tests to use the rest spec from the plugin
             String copyRestSpecTaskName = pluginTaskName('copy', plugin.getKey(), 'PluginRestSpec')
             Copy copyRestSpec = project.tasks.findByName(copyRestSpecTaskName) as Copy
@@ -407,7 +435,6 @@ class ClusterFormationTasks {
             }
             pluginFiles.add(configuration)
         }
-
         copyPlugins.into(node.pluginsTmpDir)
         copyPlugins.from(pluginFiles)
         copyPlugins
@@ -421,7 +448,9 @@ class ClusterFormationTasks {
         "_plugin_bwc_${prefix}_${project.path}".replace(':', '_')
     }
 
-    /** Configures task to copy a plugin based on a zip file resolved using dependencies for an older version */
+    /**
+     * Configures task to copy a plugin based on a zip file resolved using dependencies for an older version.
+     */
     static Task configureCopyBwcPluginsTask(String name, Project project, Task setup, NodeInfo node, String prefix) {
         Configuration bwcPlugins = project.configurations.getByName("${prefix}_elasticsearchBwcPlugins")
         for (Map.Entry<String, Project> plugin : node.config.plugins.entrySet()) {
@@ -463,7 +492,7 @@ class ClusterFormationTasks {
 
     static Task configureInstallPluginTask(String name, Project project, Task setup, NodeInfo node, Project plugin, String prefix) {
         FileCollection pluginZip
-        if (node.nodeVersion != VersionProperties.getVersion('elasticsearch')) {
+        if (node.nodeVersion != project.property('elasticsearch.version')) {
             pluginZip = project.configurations.getByName(pluginBwcConfigurationName(prefix, plugin))
         } else {
             pluginZip = project.configurations.getByName(pluginConfigurationName(prefix, plugin))
@@ -484,24 +513,9 @@ class ClusterFormationTasks {
         installPlugin
     }
 
-    /** Wrapper for command line argument: surrounds comma with double quotes **/
-    private static class EscapeCommaWrapper {
-
-        Object arg
-
-        @Override
-        String toString() {
-            String s = arg.toString()
-
-            /// Surround strings that contains a comma with double quotes
-            if (s.indexOf(',') != -1) {
-                return "\"${s}\""
-            }
-            s
-        }
-    }
-
-    /** Adds a task to execute a command to help setup the cluster */
+    /**
+     * Adds a task to execute a command to help setup the cluster.
+     */
     static Task configureExecTask(String name, Project project, Task setup, NodeInfo node, Object[] execArgs) {
         project.tasks.create(name: name, type: LoggedExec, dependsOn: setup) {
             workingDir node.cwd
@@ -509,9 +523,10 @@ class ClusterFormationTasks {
         }
     }
 
-    /** Adds a task to start an elasticsearch node with the given configuration */
+    /**
+     * Adds a task to start an elasticsearch node with the given configuration.
+     */
     static Task configureStartTask(String name, Project project, Task setup, NodeInfo node) {
-
         // this closure is converted into ant nodes by groovy's AntBuilder
         Closure antRunner = { AntBuilder ant ->
             ant.exec(executable: node.executable, spawn: node.config.daemonize, dir: node.cwd, taskname: 'elasticsearch') {
@@ -538,9 +553,7 @@ class ClusterFormationTasks {
                 println 'Running elasticsearch in debug mode, suspending until connected on port 8000'
                 node.env['ES_JAVA_OPTS'] = '-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8000'
             }
-
             node.getCommandString().eachLine { line -> logger.info(line) }
-
             if (logger.isInfoEnabled() || !node.config.daemonize) {
                 runAntCommand(project, antRunner, System.out, System.err)
             } else {
@@ -656,7 +669,9 @@ class ClusterFormationTasks {
         throw new GradleException(msg)
     }
 
-    /** Adds a task to check if the process with the given pidfile is actually elasticsearch */
+    /**
+     * Adds a task to check if the process with the given pidfile is actually elasticsearch.
+     */
     static Task configureCheckPreviousTask(String name, Project project, Object depends, NodeInfo node) {
         project.tasks.create(name: name, type: Exec, dependsOn: depends) {
             onlyIf { node.pidFile.exists() }
@@ -665,13 +680,14 @@ class ClusterFormationTasks {
             commandLine 'jps', '-l'
             standardOutput = new ByteArrayOutputStream()
             doLast {
+                String elasticsearch = "org.xbib.elasticsearch.server/org.elasticsearch.bootstrap.Elasticsearch"
                 String out = standardOutput.toString()
-                if (!out.contains("${ext.pid} org.elasticsearch.bootstrap.Elasticsearch")) {
+                if (!out.contains("${ext.pid} ${elasticsearch}")) {
                     logger.error('jps -l')
                     logger.error(out)
                     logger.error("pid file: ${node.pidFile}")
                     logger.error("pid: ${ext.pid}")
-                    throw new GradleException("jps -l did not report any process with org.elasticsearch.bootstrap.Elasticsearch\n" +
+                    throw new GradleException("jps -l did not report any process with ${elasticsearch}\n" +
                             "Did you run gradle clean? Maybe an old pid file is still lying around.")
                 } else {
                     logger.info(out)
@@ -680,7 +696,9 @@ class ClusterFormationTasks {
         }
     }
 
-    /** Adds a task to kill an elasticsearch node with the given pidfile */
+    /**
+     * Adds a task to kill an elasticsearch node with the given pidfile.
+     */
     static Task configureStopTask(String name, Project project, Object depends, NodeInfo node) {
         project.tasks.create(name: name, type: LoggedExec, dependsOn: depends) {
             onlyIf { node.pidFile.exists() }

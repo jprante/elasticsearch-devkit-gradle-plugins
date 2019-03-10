@@ -73,7 +73,9 @@ class LicenseHeadersTask extends AntTask {
                for (File dir: dirSet.srcDirs) {
                    // sometimes these dirs don't exist, e.g. site-plugin has no actual java src/main...
                    if (dir.exists()) {
-                       ant.fileset(dir: dir)
+                       ant.fileset(dir: dir) {
+                           exclude(name: '**/module-info.java')
+                       }
                    }
                }
             }
