@@ -26,18 +26,23 @@ class PluginBuildPlugin extends BuildPlugin {
             String name = project.pluginProperties.extension.name
             project.archivesBaseName = name
             project.integTestCluster.dependsOn(project.bundlePlugin)
-            project.tasks.run.dependsOn(project.bundlePlugin)
             if (isModule) {
                 project.integTestCluster.module(project)
-                project.tasks.run.clusterConfig.module(project)
             } else {
                 project.integTestCluster.plugin(project.path)
+            }
+            project.tasks.run.dependsOn(project.tasks.bundlePlugin)
+            if (isModule) {
+                project.tasks.run.clusterConfig.module(project)
+            } else {
                 project.tasks.run.clusterConfig.plugin(project.path)
-                addNoticeGeneration(project)
             }
             project.namingConventions {
                 // Plugins declare integration tests as "Tests" instead of IT.
                 skipIntegTestInDisguise = true
+            }
+            if (!isModule) {
+                addNoticeGeneration(project)
             }
         }
         createIntegTestTask(project)

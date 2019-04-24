@@ -176,6 +176,7 @@ class ClusterFormationTasks {
         setup = configureCreateKeystoreTask(taskName(prefix, node, 'createKeystore'), project, setup, node)
         setup = configureAddKeystoreSettingTasks(prefix, project, setup, node)
 
+        // plugins no longer allowed!
         if (!node.config.plugins.isEmpty()) {
             if (node.nodeVersion == project.property('elasticsearch.version')) {
                 setup = configureCopyPluginsTask(taskName(prefix, node, 'copyPlugins'), project, setup, node, prefix)
@@ -189,10 +190,11 @@ class ClusterFormationTasks {
             setup = configureInstallModuleTask(taskName(prefix, node, actionName), project, setup, node, module)
         }
 
-        for (Map.Entry<String, Project> plugin : node.config.plugins.entrySet()) {
-            String actionName = pluginTaskName('install', plugin.getKey(), 'Plugin')
-            setup = configureInstallPluginTask(taskName(prefix, node, actionName), project, setup, node, plugin.getValue(), prefix)
-        }
+        // plugins no longer allowed!
+        //for (Map.Entry<String, Project> plugin : node.config.plugins.entrySet()) {
+        //    String actionName = pluginTaskName('install', plugin.getKey(), 'Plugin')
+        //    setup = configureInstallPluginTask(taskName(prefix, node, actionName), project, setup, node, plugin.getValue(), prefix)
+        //}
 
         // sets up any extra config files that need to be copied over to the ES instance;
         // its run after plugins have been installed, as the extra config files may belong to plugins
@@ -424,14 +426,14 @@ class ClusterFormationTasks {
             String copyRestSpecTaskName = pluginTaskName('copy', plugin.getKey(), 'PluginRestSpec')
             Copy copyRestSpec = project.tasks.findByName(copyRestSpecTaskName) as Copy
             for (File resourceDir : pluginProject.sourceSets.test.resources.srcDirs) {
-                File restApiDir = new File(resourceDir, 'rest-api-spec/api')
+                File restApiDir = new File(resourceDir, 'restapispec/api')
                 if (!restApiDir.exists()) continue
                 if (copyRestSpec == null) {
                     copyRestSpec = project.tasks.create(name: copyRestSpecTaskName, type: Copy) as Copy
                     copyPlugins.dependsOn(copyRestSpec)
                     copyRestSpec.into(project.sourceSets.test.output.resourcesDir)
                 }
-                copyRestSpec.from(resourceDir).include('rest-api-spec/api/**')
+                copyRestSpec.from(resourceDir).include('restapispec/api/**')
             }
             pluginFiles.add(configuration)
         }
@@ -490,7 +492,7 @@ class ClusterFormationTasks {
         installModule
     }
 
-    static Task configureInstallPluginTask(String name, Project project, Task setup, NodeInfo node, Project plugin, String prefix) {
+    /*static Task configureInstallPluginTask(String name, Project project, Task setup, NodeInfo node, Project plugin, String prefix) {
         FileCollection pluginZip
         if (node.nodeVersion != project.property('elasticsearch.version')) {
             pluginZip = project.configurations.getByName(pluginBwcConfigurationName(prefix, plugin))
@@ -499,11 +501,9 @@ class ClusterFormationTasks {
         }
         Object file = "${-> new File(node.pluginsTmpDir, pluginZip.singleFile.getName()).toURI().toURL().toString()}"
         // removed, we do not have a 'elasticsearch-plugin' binary any more!
-        /*
-        Object esPluginUtil = "${-> node.binPath().resolve('elasticsearch-plugin').toString()}"
-        Object[] args = [esPluginUtil, 'install', '--batch', file]
-        configureExecTask(name, project, setup, node, args)
-        */
+        //Object esPluginUtil = "${-> node.binPath().resolve('elasticsearch-plugin').toString()}"
+        //Object[] args = [esPluginUtil, 'install', '--batch', file]
+        //configureExecTask(name, project, setup, node, args)
         logger.info('skipped: plugin install per command line: ' + file)
         Copy installPlugin = project.tasks.create(name, Copy.class)
         installPlugin.dependsOn(setup)
@@ -511,7 +511,7 @@ class ClusterFormationTasks {
         installPlugin.into(new File(node.homeDir, "plugins/${plugin.name}"))
         installPlugin.from({ project.zipTree(plugin.tasks.bundlePlugin.outputs.files.singleFile) })
         installPlugin
-    }
+    }*/
 
     /**
      * Adds a task to execute a command to help setup the cluster.

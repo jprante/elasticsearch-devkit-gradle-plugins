@@ -173,7 +173,9 @@ class ClusterConfiguration {
         plugins.put(pluginProject.name, pluginProject)
     }
 
-    /** Add a module to the cluster. The project must be an esplugin and have a single zip default artifact. */
+    /**
+     * Add a module to the cluster. The project must be an esplugin and have a zip artifact.
+     */
     @Input
     void module(Project moduleProject) {
         modules.add(moduleProject)
