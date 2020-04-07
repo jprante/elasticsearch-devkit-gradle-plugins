@@ -1,16 +1,13 @@
 package org.xbib.gradle.task.elasticsearch
 
-import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
-import org.gradle.internal.nativeintegration.filesystem.Chmod
-
-import javax.inject.Inject
 
 /**
  * Creates an empty directory.
  */
-class EmptyDirTask extends DefaultTask {
+class EmptyDirTask extends Exec {
   @Input
   Object dir
 
@@ -21,11 +18,6 @@ class EmptyDirTask extends DefaultTask {
   void create() {
     dir = dir as File
     dir.mkdirs()
-    getChmod().chmod(dir, dirMode)
-  }
-
-  @Inject
-  Chmod getChmod() {
-    throw new UnsupportedOperationException()
+    commandLine 'chmod', String.format('%o', dirMode), dir
   }
 }

@@ -1,5 +1,6 @@
 package org.xbib.gradle.task.elasticsearch.qa;
 
+import org.gradle.api.Action;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.ConventionTask;
 import org.gradle.api.tasks.Input;
@@ -8,6 +9,7 @@ import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.process.CommandLineArgumentProvider;
 import org.gradle.process.ExecResult;
+import org.gradle.process.JavaDebugOptions;
 import org.gradle.process.JavaExecSpec;
 import org.gradle.process.JavaForkOptions;
 import org.gradle.process.ProcessForkOptions;
@@ -256,6 +258,16 @@ public class ResultJavaExec extends ConventionTask implements JavaExecSpec {
      */
     public void setDebug(boolean enabled) {
         javaExecHandleBuilder.setDebug(enabled);
+    }
+
+    @Override
+    public JavaDebugOptions getDebugOptions() {
+        return javaExecHandleBuilder.getDebugOptions();
+    }
+
+    @Override
+    public void debugOptions(Action<JavaDebugOptions> action) {
+        javaExecHandleBuilder.debugOptions(action);
     }
 
     /**

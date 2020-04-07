@@ -14,7 +14,6 @@ dependencies {
     compile "org.xbib.elasticsearch:log4j:${project.property('elasticsearch-libs.version')}"
     testCompile gradleTestKit()
     testCompile "org.spockframework:spock-core:${project.property('spock.version')}"
-
 }
 
 task injectGradleProperties(type: Copy) {
